@@ -6,8 +6,8 @@ import scanpy as sc
 import torch
 
 class BagsDataset(Dataset):
-    def __init__(self, adata, binding_aff, radius=50, output_csv='bags.csv'):
-        self.bags = self.create_bags(adata, binding_aff, radius, output_csv)
+    def __init__(self, adata, radius=50, output_csv='bags.csv'):
+        self.bags = self.create_bags(adata, radius, output_csv)
 
     def __len__(self):
         return len(self.bags)
@@ -16,11 +16,10 @@ class BagsDataset(Dataset):
         bag = self.bags[idx]
         distances = torch.tensor(bag['distances'], dtype=torch.float32)
         gene_expression = torch.tensor(bag['gene_expression'], dtype=torch.float32)
-        affinity_data = torch.tensor(bag['affinity_data'], dtype=torch.float32)
         label = torch.tensor(bag['label'], dtype=torch.float32)
-        return distances, gene_expression, affinity_data, label
+        return distances, gene_expression, label
 
-    def create_bags(self, adata, binding_aff, radius, output_csv):
+    def create_bags(self, adata, radius, output_csv):
         spatial_coords_x = adata.obs['X']
         spatial_coords_y = adata.obs['Y']
         spatial_coords = np.array(list(zip(spatial_coords_x, spatial_coords_y)))
@@ -34,20 +33,17 @@ class BagsDataset(Dataset):
         for i in range(len(spatial_coords)):
             in_circle = np.where(dist_matrix[i] <= radius)[0]
             gene_data = gene_expression[in_circle].todense()
-            circle_barcodes = barcodes[in_circle]
-            affinity_data = np.asmatrix(binding_aff.loc[circle_barcodes].values, dtype=np.float32)
             distances = np.asmatrix(dist_matrix[i][in_circle].reshape(-1, 1), dtype=np.float32)
 
             if i == 0: 
                 print(f"Checking data for bag {i}:")
-                print(f"Number of cells in this bag: {len(circle_barcodes)}")
-                print(f"Sample of circle_barcodes: {circle_barcodes[:5]}")
-                print(f"Shape of affinity_data: {affinity_data.shape}")
+                print(f"Number of cells in this bag: {len(in_circle)}")
+                print(f"Sample of in_circle indices: {in_circle[:5]}")
+                print(f"Shape of gene_data: {gene_data.shape}")
 
             bags[i] = {
                 'distances': distances,
                 'gene_expression': gene_data,
-                'affinity_data': affinity_data,
                 'label': labels[i]
             }
 
@@ -62,9 +58,8 @@ class BagsDataset(Dataset):
         return bags
 
 def custom_collate_fn(batch):
-    distances, gene_expressions, affinity_data, labels = zip(*batch)
+    distances, gene_expressions, labels = zip(*batch)
     distances = [torch.tensor(np.array(d), dtype=torch.float32) for d in distances]
     gene_expressions = [torch.tensor(np.array(g), dtype=torch.float32) for g in gene_expressions]
-    affinity_data = [torch.tensor(np.array(a), dtype=torch.float32) for a in affinity_data]
     labels = torch.tensor(labels, dtype=torch.float32)
-    return distances, gene_expressions, affinity_data, labels
+    return distances, gene_expressions, labels
