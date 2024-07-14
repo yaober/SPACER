@@ -7,9 +7,10 @@ import scipy.sparse as sp
 from tqdm import trange
 
 class BagsDataset(Dataset):
-    def __init__(self, adata_radius_input, immune_cell, radius=None, max_instances=None):
+    def __init__(self, adata_radius_input, immune_cell, radius=None, max_instances=None, resolution='high'):
         self.immune_cell = immune_cell
         self.max_instances = max_instances
+        self.resolution = resolution
         if isinstance(adata_radius_input, list):
             self.bags = self.create_bags(adata_radius_input)
         else:
@@ -57,11 +58,12 @@ class BagsDataset(Dataset):
                 in_circle = np.where(dist_matrix_row <= radius)[0]
                 in_circle = [idx for idx in in_circle if cell_types[idx] != 0]  # Filter based on cell type
 
-                # Only include the core instance if its cell type is 1
-                if cell_types[i] == 1:
-                    in_circle.append(i)  
-                else:
-                    in_circle = [idx for idx in in_circle if idx != i]
+                if self.resolution == 'high':
+                    # Only include the core instance if its cell type is 1
+                    if cell_types[i] == 1:
+                        in_circle.append(i)
+                    else:
+                        in_circle = [idx for idx in in_circle if idx != i]
 
                 if len(in_circle) == 0:
                     continue  # Skip if no instances meet the criteria
