@@ -42,9 +42,9 @@ class BagsDataset(Dataset):
             spatial_coords = np.array(list(zip(spatial_coords_x, spatial_coords_y)))
             gene_expression = adata.X
             if self.immune_cell == 'tcell':
-                labels = adata.obs['tcr'].values
+                labels = adata.obs['T'].values
             elif self.immune_cell == 'bcell':
-                labels = adata.obs['bcr'].values
+                labels = adata.obs['B'].values
             else:
                 raise ValueError("immune_cell must be either 'tcell' or 'bcell'")
             cell_types = adata.obs['cell_type'].values
@@ -90,6 +90,7 @@ class BagsDataset(Dataset):
         print(f"Average instances per bag: {avg_instances_per_bag:.0f}")
 
         return bags
+
 
 def custom_collate_fn(batch):
     distances, gene_expressions, labels, core_idxs = zip(*batch)
