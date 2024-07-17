@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 
-from sparsemax import Sparsemax
+from .sparsemax import Sparsemax
 
 class Distance(nn.Module):
     def __init__(self):
@@ -13,7 +13,9 @@ class Distance(nn.Module):
     
     def forward(self, x):
         #print(x)
-        a = torch.sigmoid(self.a)  
+        #
+        a = torch.sigmoid(self.a)
+        a = a/(1-a)
         x = self.sparsemax(-a * x)
         return x
     
@@ -27,9 +29,12 @@ class Gene_expression(nn.Module):
 
     def forward(self, x):
         b = torch.sigmoid(self.b)
+        b = b/(1-b)
         x = b * x
         x = self.softmax(x)
         return x
+
+
 
 
 class Immunogenicity(nn.Module):
@@ -37,7 +42,7 @@ class Immunogenicity(nn.Module):
         super(Immunogenicity, self).__init__()
         self.all_genes = all_genes
         self.gene_to_index = {gene: idx for idx, gene in enumerate(all_genes)}
-        self.ig = nn.Parameter(torch.full((len(all_genes),), -4.0), requires_grad=True)
+        self.ig = nn.Parameter(torch.full((len(all_genes),), -1.0), requires_grad=True)
     
     def forward(self, current_genes):
         # Filter genes to include only those present in all_genes
@@ -45,6 +50,9 @@ class Immunogenicity(nn.Module):
         indices = [self.gene_to_index[gene] for gene in filtered_genes]
         ig = torch.sigmoid(self.ig[indices])
         return ig, filtered_genes
+
+
+
 
 class MIL(nn.Module):
     def __init__(self, all_genes):
@@ -84,6 +92,5 @@ class MIL(nn.Module):
             bag_output = torch.sigmoid(bag_output)
             bag_outputs.append(bag_output)
     
+        
         return torch.stack(bag_outputs).squeeze(dim=1)
-
-

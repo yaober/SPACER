@@ -1,4 +1,15 @@
 from torch.utils.data import Dataset
+import pandas as pd
+import scanpy as sc
+import numpy as np
+import torch
+import scipy.sparse as sp
+from scipy.spatial.distance import cdist
+from tqdm import trange
+
+from torch.utils.data import Dataset
+import pandas as pd
+import scanpy as sc
 import numpy as np
 import torch
 import scipy.sparse as sp
@@ -6,15 +17,17 @@ from scipy.spatial.distance import cdist
 from tqdm import trange
 
 class BagsDataset(Dataset):
-    def __init__(self, adata_radius_input, immune_cell, radius=None, max_instances=None, resolution='high'):
+    def __init__(self, input_data, immune_cell, max_instances=None, radius=200, resolution='low'):
         self.immune_cell = immune_cell
         self.max_instances = max_instances
+        self.radius = radius
         self.resolution = resolution
-        if isinstance(adata_radius_input, list):
-            self.bags, self.gene_names = self.create_bags(adata_radius_input)
+        if isinstance(input_data, str):
+            self.bags = self.create_bags_from_csv(input_data)
+        elif isinstance(input_data, sc.AnnData):
+            self.bags = self.create_bags_from_adata(input_data)
         else:
-            assert radius is not None, "When a single adata is provided, radius must also be provided."
-            self.bags, self.gene_names = self.create_bags([(adata_radius_input, radius)])
+            raise ValueError("input_data must be either a path to a CSV file or an AnnData object")
 
     def __len__(self):
         return len(self.bags)
@@ -29,14 +42,30 @@ class BagsDataset(Dataset):
             gene_expression = torch.tensor(gene_expression, dtype=torch.float32)
         label = torch.tensor(bag['label'], dtype=torch.float32)
         core_idx = bag['core_idx']
-        return distances, gene_expression, label, core_idx, self.gene_names
+        gene_names = bag['gene_names']
+        return distances, gene_expression, label, core_idx, gene_names
+
+    def create_bags_from_csv(self, csv_file):
+        data = pd.read_csv(csv_file)
+        adata_radius_list = []
+        for _, row in data.iterrows():
+            adata_path = row['adata']
+            adata = sc.read_h5ad(adata_path)
+            radius = row['radius'] if 'radius' in row and not pd.isna(row['radius']) else self.radius
+            resolution = row['resolution'] if 'resolution' in row and not pd.isna(row['resolution']) else self.resolution
+            adata_radius_list.append((adata, radius, resolution))
+            print(f"Processing: adata={adata_path.split('/')[-1]}, radius={radius}, resolution={resolution}")
+        return self.create_bags(adata_radius_list)
+
+    def create_bags_from_adata(self, adata):
+        adata_radius_list = [(adata, self.radius, self.resolution)]
+        return self.create_bags(adata_radius_list)
 
     def create_bags(self, adata_radius_list):
         bags = {}
         bag_id = 0
-        gene_names = None
 
-        for adata, radius in adata_radius_list:
+        for adata, radius, resolution in adata_radius_list:
             spatial_coords_x = adata.obs['X'].astype(float)
             spatial_coords_y = adata.obs['Y'].astype(float)
             spatial_coords = np.array(list(zip(spatial_coords_x, spatial_coords_y)))
@@ -49,11 +78,8 @@ class BagsDataset(Dataset):
                 raise ValueError("immune_cell must be either 'tcell' or 'bcell'")
             cell_types = adata.obs['cell_type'].values
             barcodes = adata.obs.index.values
-
-            # Store gene names
-            if gene_names is None:
-                gene_names = adata.var_names.tolist()
-
+            gene_names = adata.var_names.tolist()
+            
             for i in trange(len(spatial_coords), desc=f"Creating Bags with radius {radius}", ncols=100, bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]"):
                 if cell_types[i] == 0:
                     continue
@@ -62,7 +88,7 @@ class BagsDataset(Dataset):
                 in_circle = np.where(dist_matrix_row <= radius)[0]
                 in_circle = [idx for idx in in_circle if cell_types[idx] != 0]
 
-                if self.resolution == 'high':
+                if resolution == 'high':
                     if cell_types[i] == 1:
                         in_circle.append(i)
                     else:
@@ -81,7 +107,8 @@ class BagsDataset(Dataset):
                     'distances': distances,
                     'gene_expression': gene_data,
                     'label': labels[i],
-                    'core_idx': i
+                    'core_idx': i,
+                    'gene_names': gene_names
                 }
 
                 bag_id += 1
@@ -91,10 +118,10 @@ class BagsDataset(Dataset):
         print(f"Total bags created: {total_bags}")
         print(f"Average instances per bag: {avg_instances_per_bag:.0f}")
 
-        return bags, gene_names
+        return bags
 
 def custom_collate_fn(batch):
-    distances, gene_expressions, labels, core_idxs, gene_names = zip(*batch)
+    distances, gene_expressions, labels, core_idxs, gene_names_list = zip(*batch)
     distances = [torch.tensor(np.array(d), dtype=torch.float32) for d in distances]
     gene_expressions_tensors = []
     for g in gene_expressions:
@@ -104,6 +131,5 @@ def custom_collate_fn(batch):
             gene_expressions_tensors.append(g.clone().detach().float())
     labels = torch.tensor(labels, dtype=torch.float32)
     core_idxs = torch.tensor(core_idxs, dtype=torch.long)
-    # All gene_names should be the same, so we can just take the first one
-    current_genes = gene_names[0]
-    return distances, gene_expressions_tensors, labels, core_idxs, current_genes
+    gene_names = gene_names_list
+    return distances, gene_expressions_tensors, labels, core_idxs, gene_names
