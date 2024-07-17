@@ -1,99 +1,121 @@
 import argparse
+import csv
 import os
 import torch
-import torch.optim as optim
 import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
-from model.dataset import BagsDataset, custom_collate_fn
-from model.model import MIL
-import scanpy as sc
+import torch.optim as optim
 import numpy as np
-import pandas as pd
-import scipy.sparse as sp
+from torch.utils.data import DataLoader, random_split
+from tqdm import tqdm
+from model.dataset import BagsDataset, custom_collate_fn
+from model.model import MIL, EarlyStopping
 
-def parse_arguments():
-    parser = argparse.ArgumentParser(description='Train MIL model for gene expression and immunogenicity')
-    parser.add_argument('--epochs', type=int, default=50, help='Number of training epochs')
-    parser.add_argument('--radius', type=float, default=100, help='Radius for spatial coordinates')
-    parser.add_argument('--max_instances', type=int, default=None, help='Maximum instances per bag')
-    parser.add_argument('--immune_cell', type=str, choices=['tcell', 'bcell'], default='tcell', help='Immune cell type')
-    parser.add_argument('--data_dir', type=str, required=True, help='Path to the directory containing h5ad data files')
-    return parser.parse_args()
+def load_all_genes(reference_gene_file):
+    all_genes = []
+    with open(reference_gene_file, 'r') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            all_genes.append(row['Gene'])
+    return all_genes
 
-def load_datasets(data_dir, immune_cell, radius, max_instances):
-    h5ad_files = [f for f in os.listdir(data_dir) if f.endswith('.h5ad')]
-    datasets = []
-    for h5ad_file in h5ad_files:
-        adata = sc.read_h5ad(os.path.join(data_dir, h5ad_file))
-        dataset = BagsDataset(adata, immune_cell=immune_cell, radius=radius, max_instances=max_instances)
-        data
-        datasets.append(dataset)
-    return datasets
+def train_model(args):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+    print("=====================================")
+    all_genes = load_all_genes(args.reference_gene)
+    print('Reference genes loaded:', len(all_genes))
+    print("=====================================")
+    
+    # Create the output directory if it does not exist
+    os.makedirs(args.output_dir, exist_ok=True)
 
+    # Initialize the model
+    model = MIL(all_genes).to(device)
+    criterion = nn.BCELoss().to(device)
+    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
+    
+    # Load dataset
+    dataset = BagsDataset(args.data, immune_cell=args.immune_cell, max_instances=args.max_instances, n_genes=args.n_genes)
+    train_size = int(0.7 * len(dataset))
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    
+    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, collate_fn=custom_collate_fn)
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, collate_fn=custom_collate_fn)
 
+    early_stopping = EarlyStopping(patience=args.patience, delta=args.delta)
+    
+    ig_scores_before_training = torch.sigmoid(model.immunogenicity.ig)
+
+    for epoch in range(args.num_epochs):
+        model.train()
+        running_loss = 0.0
+        
+        with tqdm(train_loader, unit="batch") as tepoch:
+            for i, (distances, gene_expressions, label, core_idx, current_genes) in enumerate(tepoch):
+                tepoch.set_description(f"Epoch {epoch+1}/{args.num_epochs}")
+
+                optimizer.zero_grad()
+
+                distances = torch.stack(distances).to(device)
+                gene_expressions = torch.stack(gene_expressions).to(device)
+                label = label.clone().detach().float().to(device)
+                
+                output = model(distances, gene_expressions, list(current_genes[0]))
+                
+                loss = criterion(output, label)
+                loss.backward()
+                optimizer.step()
+
+                running_loss += loss.item()
+                tepoch.set_postfix(loss=loss.item())
+
+        epoch_loss = running_loss / len(train_loader)
+        print(f'Epoch [{epoch+1}/{args.num_epochs}], Loss: {epoch_loss:.4f}')
+
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for val_distances, val_gene_expressions, val_label, _, val_current_genes in val_loader:
+                val_distances = torch.stack(val_distances).to(device)
+                val_gene_expressions = torch.stack(val_gene_expressions).to(device)
+                val_label = val_label.clone().detach().float().to(device)
+                val_output = model(val_distances, val_gene_expressions, list(val_current_genes[0]))
+                val_loss += criterion(val_output, val_label).item()
+        
+        val_loss /= len(val_loader)
+        print(f'Validation Loss: {val_loss:.4f}')
+
+        early_stopping(val_loss, model, epoch)
+        if early_stopping.early_stop:
+            print(f'Early stopping at epoch {epoch+1}')
+            break
+    
+    ig_scores_after_training = torch.sigmoid(model.immunogenicity.ig)
+    
+    with open(os.path.join(args.output_dir, 'ig_score_changes.csv'), 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(['Gene', 'IG Score Before Training', 'IG Score After Training'])
+        for gene, before, after in zip(all_genes, ig_scores_before_training, ig_scores_after_training):
+            writer.writerow([gene, before.item(), after.item()])
+
+    torch.save(model.state_dict(), os.path.join(args.output_dir, 'final_model.pth'))
 
 def main():
-    args = parse_arguments()
+    parser = argparse.ArgumentParser(description='Train a MIL model for gene expression and immunogenicity.')
+    parser.add_argument('--data', type=str, required=True, help='Path to the training data file.')
+    parser.add_argument('--reference_gene', type=str, required=True, help='Path to the reference gene CSV file.')
+    parser.add_argument('--output_dir', type=str, required=True, help='Directory to save output files.')
+    parser.add_argument('--immune_cell', type=str, default='tcell', help='Type of immune cell to consider.')
+    parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate for the optimizer.')
+    parser.add_argument('--num_epochs', type=int, default=1000, help='Number of epochs to train the model.')
+    parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping.')
+    parser.add_argument('--delta', type=float, default=0.001, help='Minimum change to qualify as an improvement.')
+    parser.add_argument('--max_instances', type=int, default=None, help='Maximum instances for the dataset.')
+    parser.add_argument('--n_genes', type=int, default=500, help='Number of genes to consider.')
     
-    BATCH_SIZE = 16
-    LEARNING_RATE = 0.001
-    
-    # Load and concatenate datasets
-    datasets = load_datasets(args.data_dir, args.immune_cell, args.radius, args.max_instances)
-
-    # Initialize model
-    model = MIL(gene_names)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-
-    # Define optimizer and loss function
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    criterion = nn.BCELoss()
-
-    # Training loop
-    for epoch in range(args.epochs):
-        model.train()
-        total_loss = 0.0
-        for distances, gene_expressions, labels, core_idxs, current_genes in dataloader:
-            distances = [d.to(device) for d in distances]
-            gene_expressions = [g.to(device) for g in gene_expressions]
-            labels = labels.to(device)
-
-            optimizer.zero_grad()
-            outputs = model(distances, gene_expressions, current_genes)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-
-            total_loss += loss.item()
-
-        avg_loss = total_loss / len(dataloader)
-        print(f"Epoch [{epoch+1}/{args.epochs}], Loss: {avg_loss:.4f}")
-
-    # Save the model
-    torch.save(model.state_dict(), 'mil_model.pth')
-
-    # Evaluation function (example, can be modified based on specific requirements)
-    def evaluate(model, dataloader):
-        model.eval()
-        correct = 0
-        total = 0
-        with torch.no_grad():
-            for distances, gene_expressions, labels, core_idxs, current_genes in dataloader:
-                distances = [d.to(device) for d in distances]
-                gene_expressions = [g.to(device) for g in gene_expressions]
-                labels = labels.to(device)
-
-                outputs = model(distances, gene_expressions, current_genes)
-                predicted = (outputs > 0.5).float()
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
-
-        accuracy = 100 * correct / total
-        print(f'Accuracy: {accuracy:.2f}%')
-
-    # Evaluate the model
-    evaluate(model, dataloader)
+    args = parser.parse_args()
+    train_model(args)
 
 if __name__ == '__main__':
     main()

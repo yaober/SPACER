@@ -15,16 +15,52 @@ import torch
 import scipy.sparse as sp
 from scipy.spatial.distance import cdist
 from tqdm import trange
+from scipy.sparse import issparse
+
+def preprocess_data(adata,immune_cell,n_genes):
+    # Read the data
+    if immune_cell == 'tcell':
+        immune_cell = 'T'
+    elif immune_cell == 'bcell':
+        immune_cell = 'B'
+    else:
+        raise ValueError('Invalid immune cell type')
+    # Calculate the 50th percentile of the immune cell column
+    percentile_value = np.percentile(adata.obs[immune_cell], 50)
+    
+    # Binarize the 'T' column based on the percentile value
+    adata.obs[immune_cell] = np.where(adata.obs[immune_cell] >= percentile_value, 1, 0)
+    
+    # Filter the tumor cells
+    tumor_cells = adata[adata.obs['cell_type'].astype(int) == 1]
+    
+    # Check if the expression matrix is sparse and convert to dense if necessary
+    if issparse(tumor_cells.X):
+        tumor_cells_X_dense = tumor_cells.X.toarray()
+    else:
+        tumor_cells_X_dense = tumor_cells.X
+    
+    # Calculate mean expression (assuming mean_expression is used for some purpose)
+    mean_expression = tumor_cells_X_dense.mean(axis=0)
+    
+    # Select top 500 genes (this part needs the definition of top_500_genes)
+    top_n_genes = mean_expression.argsort()[-n_genes:][::-1]
+    adata = adata[:, top_n_genes]
+    
+    return adata
 
 class BagsDataset(Dataset):
-    def __init__(self, input_data, immune_cell, max_instances=None, radius=200, resolution='low'):
+    def __init__(self, input_data, immune_cell, max_instances=None, radius=200, resolution='low',n_genes=500):
         self.immune_cell = immune_cell
         self.max_instances = max_instances
         self.radius = radius
         self.resolution = resolution
+        self.n_genes = n_genes
         if isinstance(input_data, str):
             self.bags = self.create_bags_from_csv(input_data)
         elif isinstance(input_data, sc.AnnData):
+            input_data = preprocess_data(input_data, immune_cell,n_genes)
+            #print(f"Preprocessed data: {input_data.X.shape}")
             self.bags = self.create_bags_from_adata(input_data)
         else:
             raise ValueError("input_data must be either a path to a CSV file or an AnnData object")
@@ -51,6 +87,9 @@ class BagsDataset(Dataset):
         for _, row in data.iterrows():
             adata_path = row['adata']
             adata = sc.read_h5ad(adata_path)
+            adata = preprocess_data(adata, self.immune_cell, self.n_genes)
+            #print(f"Preprocessed data: {adata_path.split('/')[-1]}")
+            
             radius = row['radius'] if 'radius' in row and not pd.isna(row['radius']) else self.radius
             resolution = row['resolution'] if 'resolution' in row and not pd.isna(row['resolution']) else self.resolution
             adata_radius_list.append((adata, radius, resolution))
