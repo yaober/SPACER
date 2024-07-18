@@ -134,15 +134,12 @@ def train_model(args):
     output_path = os.path.join(args.output_dir, 'ig_score_changes.csv')
     df.to_csv(output_path, index=False)
     
-<<<<<<< HEAD
     ig_score = {
     'Gene': all_genes,
     'IG Score Before Training': [score.item() for score in ig_scores_before_training],
     'IG Score After Training': [score.item() for score in ig_scores_after_training]
     }   
     df = pd.DataFrame(ig_score)
-=======
->>>>>>> 891b0aff2698f7f173096783187843475284a3c7
 
     # Calculate the difference and add it as a new column
     df['Difference'] = df['IG Score After Training'] - df['IG Score Before Training']
