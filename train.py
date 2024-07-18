@@ -5,7 +5,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+import pandas as pd
 from torch.utils.data import DataLoader, random_split
+from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 from model.dataset import BagsDataset, custom_collate_fn
 from model.model import MIL, EarlyStopping
@@ -20,7 +22,11 @@ def load_all_genes(reference_gene_file):
 
 def train_model(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    if device.type == "cuda":
+        gpu_name = torch.cuda.get_device_name(torch.cuda.current_device())
+        print(f"Using device: {device} ({gpu_name})")
+    else:
+        print(f"Using device: {device}")
     print("=====================================")
     all_genes = load_all_genes(args.reference_gene)
     print('Reference genes loaded:', len(all_genes))
@@ -75,6 +81,8 @@ def train_model(args):
 
         model.eval()
         val_loss = 0.0
+        val_predictions = []
+        val_labels = []
         with torch.no_grad():
             for val_distances, val_gene_expressions, val_label, _, val_current_genes in val_loader:
                 val_distances = torch.stack(val_distances).to(device)
@@ -82,9 +90,12 @@ def train_model(args):
                 val_label = val_label.clone().detach().float().to(device)
                 val_output = model(val_distances, val_gene_expressions, list(val_current_genes[0]))
                 val_loss += criterion(val_output, val_label).item()
+                val_predictions.extend(val_output.cpu().numpy())
+                val_labels.extend(val_label.cpu().numpy())
         
         val_loss /= len(val_loader)
-        print(f'Validation Loss: {val_loss:.4f}')
+        val_auroc = roc_auc_score(val_labels, val_predictions)
+        print(f'Validation Loss: {val_loss:.4f}, Validation AUROC: {val_auroc:.4f}')
 
         early_stopping(val_loss, model, epoch)
         if early_stopping.early_stop:
@@ -93,12 +104,23 @@ def train_model(args):
     
     ig_scores_after_training = torch.sigmoid(model.immunogenicity.ig)
     
-    with open(os.path.join(args.output_dir, 'ig_score_changes.csv'), 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(['Gene', 'IG Score Before Training', 'IG Score After Training'])
-        for gene, before, after in zip(all_genes, ig_scores_before_training, ig_scores_after_training):
-            writer.writerow([gene, before.item(), after.item()])
+    ig_score = {
+    'Gene': all_genes,
+    'IG Score Before Training': [score.item() for score in ig_scores_before_training],
+    'IG Score After Training': [score.item() for score in ig_scores_after_training]
+    }   
+    df = pd.DataFrame(ig_score)
 
+    # Calculate the difference and add it as a new column
+    df['Difference'] = df['IG Score After Training'] - df['IG Score Before Training']
+
+    # Sort the DataFrame by the Difference column in descending order
+    df = df.sort_values(by='Difference', ascending=False)
+
+    # Write the sorted DataFrame to a CSV file
+    output_path = os.path.join(args.output_dir, 'ig_score_changes.csv')
+    df.to_csv(output_path, index=False)
+    
     torch.save(model.state_dict(), os.path.join(args.output_dir, 'final_model.pth'))
 
 def main():

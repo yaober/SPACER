@@ -1,2 +1,4 @@
 example.h5ad
 bags.csv
+*.out
+*.err

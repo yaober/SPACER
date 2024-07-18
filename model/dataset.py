@@ -17,7 +17,7 @@ from scipy.spatial.distance import cdist
 from tqdm import trange
 from scipy.sparse import issparse
 
-def preprocess_data(adata,immune_cell,n_genes):
+def preprocess_data(adata, immune_cell, n_genes):
     # Read the data
     if immune_cell == 'tcell':
         immune_cell = 'T'
@@ -25,28 +25,33 @@ def preprocess_data(adata,immune_cell,n_genes):
         immune_cell = 'B'
     else:
         raise ValueError('Invalid immune cell type')
-    # Calculate the 50th percentile of the immune cell column
-    percentile_value = np.percentile(adata.obs[immune_cell], 50)
-    
-    # Binarize the 'T' column based on the percentile value
-    adata.obs[immune_cell] = np.where(adata.obs[immune_cell] >= percentile_value, 1, 0)
-    
+
+    # Ensure adata is not a view
+    adata = adata.copy()
+
     # Filter the tumor cells
-    tumor_cells = adata[adata.obs['cell_type'].astype(int) == 1]
-    
+    tumor_cells = adata[adata.obs['cell_type'].astype(int) == 1].copy()
+
     # Check if the expression matrix is sparse and convert to dense if necessary
     if issparse(tumor_cells.X):
         tumor_cells_X_dense = tumor_cells.X.toarray()
     else:
         tumor_cells_X_dense = tumor_cells.X
-    
-    # Calculate mean expression (assuming mean_expression is used for some purpose)
+
+    # Calculate mean expression
     mean_expression = tumor_cells_X_dense.mean(axis=0)
-    
-    # Select top 500 genes (this part needs the definition of top_500_genes)
+
+    # Select top n genes
     top_n_genes = mean_expression.argsort()[-n_genes:][::-1]
-    adata = adata[:, top_n_genes]
-    
+    adata = adata[:, top_n_genes].copy()
+    adata.obs[immune_cell] = adata.obs[immune_cell].astype(float)
+    tumor_cells.obs[immune_cell] = tumor_cells.obs[immune_cell].astype(float)
+    # Calculate the 50th percentile of the immune cell column
+    percentile_value = np.percentile(tumor_cells.obs[immune_cell], 50)
+
+    # Binarize the immune cell column based on the percentile value
+    adata.obs[immune_cell] = np.where(adata.obs[immune_cell] >= percentile_value, 1, 0)
+
     return adata
 
 class BagsDataset(Dataset):
@@ -60,7 +65,7 @@ class BagsDataset(Dataset):
             self.bags = self.create_bags_from_csv(input_data)
         elif isinstance(input_data, sc.AnnData):
             input_data = preprocess_data(input_data, immune_cell,n_genes)
-            #print(f"Preprocessed data: {input_data.X.shape}")
+            print(f"Preprocessed data: {input_data.X.shape}")
             self.bags = self.create_bags_from_adata(input_data)
         else:
             raise ValueError("input_data must be either a path to a CSV file or an AnnData object")
@@ -88,7 +93,6 @@ class BagsDataset(Dataset):
             adata_path = row['adata']
             adata = sc.read_h5ad(adata_path)
             adata = preprocess_data(adata, self.immune_cell, self.n_genes)
-            #print(f"Preprocessed data: {adata_path.split('/')[-1]}")
             
             radius = row['radius'] if 'radius' in row and not pd.isna(row['radius']) else self.radius
             resolution = row['resolution'] if 'resolution' in row and not pd.isna(row['resolution']) else self.resolution
@@ -115,6 +119,7 @@ class BagsDataset(Dataset):
                 labels = adata.obs['B'].values
             else:
                 raise ValueError("immune_cell must be either 'tcell' or 'bcell'")
+            adata.obs['cell_type'] = adata.obs['cell_type'].astype(int)
             cell_types = adata.obs['cell_type'].values
             barcodes = adata.obs.index.values
             gene_names = adata.var_names.tolist()

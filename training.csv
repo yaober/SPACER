@@ -1,3 +1,7 @@
 ﻿adata,radius,resolution
 /project/DPDS/Wang_lab/s439765/spatial_tcr/HumanLungCancerFFPE/HumanLungCancerFFPE.h5ad,200,low
-/project/DPDS/Wang_lab/s439765/spatial_tcr/test.h5ad,,high
+/project/DPDS/Wang_lab/shared/spatial_TCR/data/train_validate/SPTCR/UKF275/UKF275.h5ad,200,high
+/project/DPDS/Wang_lab/shared/spatial_TCR/data/train_validate/SpatialVDJ/TumE2/TumE2.h5ad,200,high
+/project/DPDS/Wang_lab/shared/spatial_TCR/data/train_validate/SpatialVDJ/TumA1/TumA1.h5ad,200,high
+/project/DPDS/Wang_lab/shared/spatial_TCR/data/train_validate/Spatial_TCR_Visium/p16/p16.h5ad,200,high
+/project/DPDS/Wang_lab/shared/spatial_TCR/data/train_validate/VisiumHD/HumanColorectalCancer/T_cell.h5ad,30,high
