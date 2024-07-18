@@ -81,8 +81,13 @@ def train_model(args):
 
         model.eval()
         val_loss = 0.0
+<<<<<<< HEAD
         val_predictions = []
         val_labels = []
+=======
+        all_labels = []
+        all_outputs = []
+>>>>>>> 891b0aff2698f7f173096783187843475284a3c7
         with torch.no_grad():
             for val_distances, val_gene_expressions, val_label, _, val_current_genes in val_loader:
                 val_distances = torch.stack(val_distances).to(device)
@@ -90,11 +95,20 @@ def train_model(args):
                 val_label = val_label.clone().detach().float().to(device)
                 val_output = model(val_distances, val_gene_expressions, list(val_current_genes[0]))
                 val_loss += criterion(val_output, val_label).item()
+<<<<<<< HEAD
                 val_predictions.extend(val_output.cpu().numpy())
                 val_labels.extend(val_label.cpu().numpy())
         
         val_loss /= len(val_loader)
         val_auroc = roc_auc_score(val_labels, val_predictions)
+=======
+                all_labels.extend(val_label.cpu().numpy())
+                all_outputs.extend(val_output.cpu().numpy())
+        
+        val_loss /= len(val_loader)
+
+        val_auroc = roc_auc_score(all_labels, all_outputs)
+>>>>>>> 891b0aff2698f7f173096783187843475284a3c7
         print(f'Validation Loss: {val_loss:.4f}, Validation AUROC: {val_auroc:.4f}')
 
         early_stopping(val_loss, model, epoch)
@@ -103,13 +117,32 @@ def train_model(args):
             break
     
     ig_scores_after_training = torch.sigmoid(model.immunogenicity.ig)
+    ig_score = {
+    'Gene': all_genes,
+    'IG Score Before Training': [score.item() for score in ig_scores_before_training],
+    'IG Score After Training': [score.item() for score in ig_scores_after_training]
+}   
+    df = pd.DataFrame(ig_score)
+
+    # Calculate the difference and add it as a new column
+    df['Difference'] = df['IG Score After Training'] - df['IG Score Before Training']
+
+    # Sort the DataFrame by the Difference column in descending order
+    df = df.sort_values(by='Difference', ascending=False)
+
+    # Write the sorted DataFrame to a CSV file
+    output_path = os.path.join(args.output_dir, 'ig_score_changes.csv')
+    df.to_csv(output_path, index=False)
     
+<<<<<<< HEAD
     ig_score = {
     'Gene': all_genes,
     'IG Score Before Training': [score.item() for score in ig_scores_before_training],
     'IG Score After Training': [score.item() for score in ig_scores_after_training]
     }   
     df = pd.DataFrame(ig_score)
+=======
+>>>>>>> 891b0aff2698f7f173096783187843475284a3c7
 
     # Calculate the difference and add it as a new column
     df['Difference'] = df['IG Score After Training'] - df['IG Score Before Training']

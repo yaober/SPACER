@@ -44,10 +44,16 @@ def preprocess_data(adata, immune_cell, n_genes):
     # Select top n genes
     top_n_genes = mean_expression.argsort()[-n_genes:][::-1]
     adata = adata[:, top_n_genes].copy()
+<<<<<<< HEAD
     adata.obs[immune_cell] = adata.obs[immune_cell].astype(float)
     tumor_cells.obs[immune_cell] = tumor_cells.obs[immune_cell].astype(float)
     # Calculate the 50th percentile of the immune cell column
     percentile_value = np.percentile(tumor_cells.obs[immune_cell], 50)
+=======
+    adata.obs[immune_cell] = tumor_cells.obs[immune_cell].astype(float)
+    # Calculate the 50th percentile of the immune cell column
+    percentile_value = np.percentile(adata.obs[immune_cell], 50)
+>>>>>>> 891b0aff2698f7f173096783187843475284a3c7
 
     # Binarize the immune cell column based on the percentile value
     adata.obs[immune_cell] = np.where(adata.obs[immune_cell] >= percentile_value, 1, 0)

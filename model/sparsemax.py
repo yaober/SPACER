@@ -39,3 +39,8 @@ class Sparsemax(nn.Module):
         output = output.transpose(0, self.dim)
 
         return output
+<<<<<<< HEAD
+=======
+    
+
+>>>>>>> 891b0aff2698f7f173096783187843475284a3c7
