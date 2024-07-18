@@ -81,13 +81,8 @@ def train_model(args):
 
         model.eval()
         val_loss = 0.0
-<<<<<<< HEAD
         val_predictions = []
         val_labels = []
-=======
-        all_labels = []
-        all_outputs = []
->>>>>>> 891b0aff2698f7f173096783187843475284a3c7
         with torch.no_grad():
             for val_distances, val_gene_expressions, val_label, _, val_current_genes in val_loader:
                 val_distances = torch.stack(val_distances).to(device)
@@ -95,20 +90,11 @@ def train_model(args):
                 val_label = val_label.clone().detach().float().to(device)
                 val_output = model(val_distances, val_gene_expressions, list(val_current_genes[0]))
                 val_loss += criterion(val_output, val_label).item()
-<<<<<<< HEAD
                 val_predictions.extend(val_output.cpu().numpy())
                 val_labels.extend(val_label.cpu().numpy())
         
         val_loss /= len(val_loader)
         val_auroc = roc_auc_score(val_labels, val_predictions)
-=======
-                all_labels.extend(val_label.cpu().numpy())
-                all_outputs.extend(val_output.cpu().numpy())
-        
-        val_loss /= len(val_loader)
-
-        val_auroc = roc_auc_score(all_labels, all_outputs)
->>>>>>> 891b0aff2698f7f173096783187843475284a3c7
         print(f'Validation Loss: {val_loss:.4f}, Validation AUROC: {val_auroc:.4f}')
 
         early_stopping(val_loss, model, epoch)
