@@ -13,12 +13,9 @@ class Distance(nn.Module):
     
     def forward(self, x):
         #print(x)
-        #
-        a = torch.sigmoid(self.a)
-        a = a/(1-a)
-        x = self.sparsemax(-a * x)
+        a = self.a
+        x = self.sparsemax(-torch.exp(a) * x)
         return x
-    
 
 class Gene_expression(nn.Module):
     def __init__(self):
@@ -28,10 +25,9 @@ class Gene_expression(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, x):
-        b = torch.sigmoid(self.b)
-        b = b/(1-b)
-        x = b * x
-        x = self.softmax(x)
+
+        b = self.b
+        x = self.softmax(-torch.exp(b) * x)
         return x
 
 
@@ -54,6 +50,7 @@ class Immunogenicity(nn.Module):
 
 
 
+
 class MIL(nn.Module):
     def __init__(self, all_genes):
         super(MIL, self).__init__()
@@ -67,6 +64,8 @@ class MIL(nn.Module):
             distance = self.distance(distance)
             gene_expression = self.gene_expression(gene_expression)
             immunogenicity, filtered_genes = self.immunogenicity(current_genes)
+            self.alpha = nn.Parameter(torch.tensor(1.0),requires_grad=True)
+            self.beta = nn.Parameter(torch.tensor(1.0),requires_grad=True)
         
             if len(filtered_genes) == 0:
                 continue  # Skip if no overlapping genes
@@ -86,13 +85,18 @@ class MIL(nn.Module):
             #print(f"Immunogenicity shape: {immunogenicity.shape}")
         
             z = gene_expression @ immunogenicity
+            #print(f"z shape: {z.shape}")
             z = z.unsqueeze(1)
+            #print(f"z shape: {z.shape}")
+            #print(f"distance shape: {distance}")
             bag_output = distance * z
             bag_output = torch.sum(bag_output, dim=0)
-            #print(f'bag_output: {bag_output}')
+            bag_output = torch.exp(self.alpha) * bag_output + self.beta
             bag_output = torch.sigmoid(bag_output)
-
+            #print(bag_output)
             bag_outputs.append(bag_output)
+            #df = pd.DataFrame(bag_outputs)
+            #df.to_csv('output.csv')
     
         
         return torch.stack(bag_outputs).squeeze(dim=1)

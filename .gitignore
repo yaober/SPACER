@@ -4,3 +4,4 @@ scripts/*.out
 scripts/*.err
 *.out
 *.err
+*.csv
