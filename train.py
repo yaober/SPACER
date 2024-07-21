@@ -51,7 +51,7 @@ def train_model(args):
 
     early_stopping = EarlyStopping(patience=args.patience, delta=args.delta)
     
-    ig_scores_before_training = torch.sigmoid(model.immunogenicity.ig)
+    ig_scores_before_training = model.immunogenicity.ig
 
     for epoch in range(args.num_epochs):
         model.train()
@@ -102,7 +102,7 @@ def train_model(args):
             print(f'Early stopping at epoch {epoch+1}')
             break
     
-    ig_scores_after_training = torch.sigmoid(model.immunogenicity.ig)
+    ig_scores_after_training = model.immunogenicity.ig
     ig_score = {
     'Gene': all_genes,
     'IG Score Before Training': [score.item() for score in ig_scores_before_training],

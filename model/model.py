@@ -89,7 +89,9 @@ class MIL(nn.Module):
             z = z.unsqueeze(1)
             bag_output = distance * z
             bag_output = torch.sum(bag_output, dim=0)
+            #print(f'bag_output: {bag_output}')
             bag_output = torch.sigmoid(bag_output)
+
             bag_outputs.append(bag_output)
     
         

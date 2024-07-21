@@ -18,4 +18,5 @@ module load gpu_prepare
 module load python/3.8.x-anaconda
 conda activate spatial_tcr
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
+export CUDA_VISIBLE_DEVICES=0
 python train.py --data training.csv --reference_gene human.csv --output_dir ./results/test_1 --immune_cell tcell --learning_rate 0.0001 --num_epochs 1000 --patience 5 --delta 0.0001
