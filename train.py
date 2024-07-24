@@ -38,7 +38,7 @@ def train_model(args):
     # Initialize the model
     model = MIL(all_genes).to(device)
     criterion = nn.BCELoss().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
+    optimizer = optim.SGD(model.parameters(), lr=args.learning_rate)
     
     # Load dataset
     dataset = BagsDataset(args.data, immune_cell=args.immune_cell, max_instances=args.max_instances, n_genes=args.n_genes)
@@ -51,8 +51,7 @@ def train_model(args):
 
     early_stopping = EarlyStopping(patience=args.patience, delta=args.delta)
     
-    ig_scores_before_training = model.immunogenicity.ig
-
+    ig_scores_before_training = torch.sigmoid(model.immunogenicity.ig)
     for epoch in range(args.num_epochs):
         model.train()
         running_loss = 0.0
@@ -102,29 +101,12 @@ def train_model(args):
             print(f'Early stopping at epoch {epoch+1}')
             break
     
-    ig_scores_after_training = model.immunogenicity.ig
+    ig_scores_after_training = torch.sigmoid(model.immunogenicity.ig)
     ig_score = {
     'Gene': all_genes,
     'IG Score Before Training': [score.item() for score in ig_scores_before_training],
     'IG Score After Training': [score.item() for score in ig_scores_after_training]
 }   
-    df = pd.DataFrame(ig_score)
-
-    # Calculate the difference and add it as a new column
-    df['Difference'] = df['IG Score After Training'] - df['IG Score Before Training']
-
-    # Sort the DataFrame by the Difference column in descending order
-    df = df.sort_values(by='Difference', ascending=False)
-
-    # Write the sorted DataFrame to a CSV file
-    output_path = os.path.join(args.output_dir, 'ig_score_changes.csv')
-    df.to_csv(output_path, index=False)
-    
-    ig_score = {
-    'Gene': all_genes,
-    'IG Score Before Training': [score.item() for score in ig_scores_before_training],
-    'IG Score After Training': [score.item() for score in ig_scores_after_training]
-    }   
     df = pd.DataFrame(ig_score)
 
     # Calculate the difference and add it as a new column
