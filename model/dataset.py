@@ -47,16 +47,13 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
     adata.obs[immune_cell] = adata.obs[immune_cell].astype(float)
     tumor_cells.obs[immune_cell] = tumor_cells.obs[immune_cell].astype(float)
     
-    # Skip binarization if resolution is high
+    # Binarize the immune cell column based on the percentile value if resolution is not 'high'
     if resolution != 'high':
-        # Calculate the 50th percentile of the immune cell column
         percentile_value = np.percentile(tumor_cells.obs[immune_cell], 50)
-
-        # Binarize the immune cell column based on the percentile value
         adata.obs[immune_cell] = np.where(adata.obs[immune_cell] >= percentile_value, 1, 0)
+  
 
     return adata
-
 
 class BagsDataset(Dataset):
     def __init__(self, input_data, immune_cell, max_instances=None, radius=200, resolution='low',n_genes=500):
@@ -66,9 +63,9 @@ class BagsDataset(Dataset):
         self.resolution = resolution
         self.n_genes = n_genes
         if isinstance(input_data, str):
-            self.bags = self.create_bags_from_csv(input_data,resolution)
+            self.bags = self.create_bags_from_csv(input_data)
         elif isinstance(input_data, sc.AnnData):
-            input_data = preprocess_data(input_data, immune_cell,n_genes,resolution)
+            input_data = preprocess_data(input_data, immune_cell,n_genes,self.resolution)
             print(f"Preprocessed data: {input_data.X.shape}")
             self.bags = self.create_bags_from_adata(input_data)
         else:
@@ -90,16 +87,15 @@ class BagsDataset(Dataset):
         gene_names = bag['gene_names']
         return distances, gene_expression, label, core_idx, gene_names
 
-    def create_bags_from_csv(self, csv_file,resolution):
+    def create_bags_from_csv(self, csv_file):
         data = pd.read_csv(csv_file)
         adata_radius_list = []
         for _, row in data.iterrows():
             adata_path = row['adata']
+            resolution = row['resolution'] if 'resolution' in row and not pd.isna(row['resolution']) else self.resolution
             adata = sc.read_h5ad(adata_path)
             adata = preprocess_data(adata, self.immune_cell, self.n_genes,resolution=resolution)
-            
             radius = row['radius'] if 'radius' in row and not pd.isna(row['radius']) else self.radius
-            resolution = row['resolution'] if 'resolution' in row and not pd.isna(row['resolution']) else self.resolution
             adata_radius_list.append((adata, radius, resolution))
             print(f"Processing: adata={adata_path.split('/')[-1]}, radius={radius}, resolution={resolution}")
         return self.create_bags(adata_radius_list)

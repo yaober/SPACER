@@ -11,6 +11,9 @@ from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 from model.dataset import BagsDataset, custom_collate_fn
 from model.model import MIL, EarlyStopping
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+
 
 def load_all_genes(reference_gene_file):
     all_genes = []
