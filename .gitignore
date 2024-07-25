@@ -8,3 +8,4 @@ scripts/*.err
 *.h5ad
 test/*
 results/*
+*.pth
