@@ -49,10 +49,11 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
     
     # Binarize the immune cell column based on the percentile value if resolution is not 'high'
     if resolution != 'high':
-        percentile_value = np.percentile(tumor_cells.obs[immune_cell], 50)
-        adata.obs[immune_cell] = np.where(adata.obs[immune_cell] >= percentile_value, 1, 0)
+        percentile_value = np.percentile(tumor_cells.obs[immune_cell], 5)
+        #percentile_value = min(percentile_value, 1)
+        print(f"Percentile value: {percentile_value}")
+        adata.obs[immune_cell] = np.where(adata.obs[immune_cell] > percentile_value, 1, 0)
   
-
     return adata
 
 class BagsDataset(Dataset):

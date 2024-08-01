@@ -31,8 +31,6 @@ class Gene_expression(nn.Module):
         return x
 
 
-
-
 class Immunogenicity(nn.Module):
     def __init__(self, all_genes):
         super(Immunogenicity, self).__init__()
@@ -49,14 +47,14 @@ class Immunogenicity(nn.Module):
 
 
 
-
-
 class MIL(nn.Module):
     def __init__(self, all_genes):
         super(MIL, self).__init__()
         self.distance = Distance()
         self.gene_expression = Gene_expression()
         self.immunogenicity = Immunogenicity(all_genes)
+        self.alpha = nn.Parameter(torch.tensor(1.0), requires_grad=True)
+        self.beta = nn.Parameter(torch.tensor(1.0), requires_grad=True)
     
     def forward(self, distances, gene_expressions, current_genes):
         bag_outputs = []
@@ -64,8 +62,8 @@ class MIL(nn.Module):
             distance = self.distance(distance)
             gene_expression = self.gene_expression(gene_expression)
             immunogenicity, filtered_genes = self.immunogenicity(current_genes)
-            self.alpha = nn.Parameter(torch.tensor(1.0),requires_grad=True)
-            self.beta = nn.Parameter(torch.tensor(1.0),requires_grad=True)
+            alpha = self.alpha
+            beta = self.beta
         
             if len(filtered_genes) == 0:
                 continue  # Skip if no overlapping genes
@@ -91,7 +89,7 @@ class MIL(nn.Module):
             #print(f"distance shape: {distance}")
             bag_output = distance * z
             bag_output = torch.sum(bag_output, dim=0)
-            bag_output = torch.exp(self.alpha) * bag_output + self.beta
+            bag_output = torch.exp(alpha) * bag_output + beta
             bag_output = torch.sigmoid(bag_output)
             #print(bag_output)
             bag_outputs.append(bag_output)
