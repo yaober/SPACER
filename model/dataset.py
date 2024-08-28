@@ -16,7 +16,6 @@ import scipy.sparse as sp
 from scipy.spatial.distance import cdist
 from tqdm import trange
 from scipy.sparse import issparse
-
 def preprocess_data(adata, immune_cell, n_genes, resolution):
     # Read the data
     if immune_cell == 'tcell':
@@ -29,8 +28,14 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
     # Ensure adata is not a view
     adata = adata.copy()
 
+
     # Filter the tumor cells
     tumor_cells = adata[adata.obs['cell_type'].astype(int) == 1].copy()
+
+    # Debug: Check tumor cells
+    print(f"Tumor cells shape after filtering: {tumor_cells.shape}")
+    if tumor_cells.shape[0] == 0:
+        print("Warning: No tumor cells found after filtering.")
 
     # Check if the expression matrix is sparse and convert to dense if necessary
     if issparse(tumor_cells.X):
@@ -43,18 +48,26 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
 
     # Select top n genes
     top_n_genes = mean_expression.argsort()[-n_genes:][::-1]
+
     adata = adata[:, top_n_genes].copy()
+
+ 
+    
     adata.obs[immune_cell] = adata.obs[immune_cell].astype(float)
     tumor_cells.obs[immune_cell] = tumor_cells.obs[immune_cell].astype(float)
     
     # Binarize the immune cell column based on the percentile value if resolution is not 'high'
     if resolution != 'high':
-        percentile_value = np.percentile(tumor_cells.obs[immune_cell], 5)
-        #percentile_value = min(percentile_value, 1)
-        print(f"Percentile value: {percentile_value}")
-        adata.obs[immune_cell] = np.where(adata.obs[immune_cell] > percentile_value, 1, 0)
-  
+        if tumor_cells.obs[immune_cell].empty:
+            print(f"Error: tumor_cells.obs[{immune_cell}] is empty.")
+        else:
+            percentile_value = np.percentile(tumor_cells.obs[immune_cell], 50)
+            print(f"Percentile value: {percentile_value}")
+            adata.obs[immune_cell] = np.where(adata.obs[immune_cell] > percentile_value, 1, 0)
+            print(f"adata.obs[{immune_cell}] after binarization: {adata.obs[immune_cell].head()}")
+
     return adata
+
 
 class BagsDataset(Dataset):
     def __init__(self, input_data, immune_cell, max_instances=None, radius=200, resolution='low',n_genes=500):
@@ -95,10 +108,13 @@ class BagsDataset(Dataset):
             adata_path = row['adata']
             resolution = row['resolution'] if 'resolution' in row and not pd.isna(row['resolution']) else self.resolution
             adata = sc.read_h5ad(adata_path)
+            adata.obs_names_make_unique()
+            adata
             adata = preprocess_data(adata, self.immune_cell, self.n_genes,resolution=resolution)
             radius = row['radius'] if 'radius' in row and not pd.isna(row['radius']) else self.radius
             adata_radius_list.append((adata, radius, resolution))
             print(f"Processing: adata={adata_path.split('/')[-1]}, radius={radius}, resolution={resolution}")
+            print(adata_path)
         return self.create_bags(adata_radius_list)
 
     def create_bags_from_adata(self, adata):
