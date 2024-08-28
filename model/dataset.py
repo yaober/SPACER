@@ -16,6 +16,8 @@ import scipy.sparse as sp
 from scipy.spatial.distance import cdist
 from tqdm import trange
 from scipy.sparse import issparse
+
+
 def preprocess_data(adata, immune_cell, n_genes, resolution):
     # Read the data
     if immune_cell == 'tcell':
@@ -114,7 +116,6 @@ class BagsDataset(Dataset):
             radius = row['radius'] if 'radius' in row and not pd.isna(row['radius']) else self.radius
             adata_radius_list.append((adata, radius, resolution))
             print(f"Processing: adata={adata_path.split('/')[-1]}, radius={radius}, resolution={resolution}")
-            print(adata_path)
         return self.create_bags(adata_radius_list)
 
     def create_bags_from_adata(self, adata):
