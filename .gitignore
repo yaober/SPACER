@@ -4,7 +4,6 @@ scripts/*.out
 scripts/*.err
 *.out
 *.err
-*.csv
 *.h5ad
 test/*
 results/*
