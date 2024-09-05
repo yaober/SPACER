@@ -17,4 +17,4 @@
 module load python/3.8.x-anaconda
 conda activate spatial_tcr
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
-python train.py --data data/training_all.csv --reference_gene data/reference.csv --output_dir ./test/all_cpu_2500 --immune_cell tcell --learning_rate 0.0001 --num_epochs 1000 --patience 5 --delta 0.0001
+python train.py --data data/training_all.csv --reference_gene data/human.csv --output_dir ./test/all_cpu_200000_freeze --immune_cell tcell --learning_rate 0.0001 --num_epochs 1000 --patience 5 --delta 0.0001

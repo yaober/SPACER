@@ -30,22 +30,40 @@ class Gene_expression(nn.Module):
         x = self.softmax(-torch.exp(b) * x)
         return x
 
-
 class Immunogenicity(nn.Module):
     def __init__(self, all_genes):
         super(Immunogenicity, self).__init__()
         self.all_genes = all_genes
         self.gene_to_index = {gene: idx for idx, gene in enumerate(all_genes)}
         self.ig = nn.Parameter(torch.full((len(all_genes),), -1.0), requires_grad=True)
-    
+        self.mask = torch.ones(len(all_genes), dtype=torch.bool)  # Create a mask for gene usage
+ 
+    def freeze_unused_genes(self, current_genes):
+        # Reset the mask to mark all genes as unused
+        self.mask.fill_(False)
+        # Mark the genes in current_genes as used
+        for gene in current_genes:
+            if gene in self.gene_to_index:
+                idx = self.gene_to_index[gene]
+                self.mask[idx] = True
+ 
     def forward(self, current_genes):
-        # Filter genes to include only those present in all_genes
+        # Freeze unused genes by applying the mask
+        self.freeze_unused_genes(current_genes)
+ 
+        # Ensure the mask is on the same device as self.ig
+        self.mask = self.mask.to(self.ig.device)
+ 
+        # Apply the mask to ig, setting unused genes to zero or ignoring them
+        filtered_ig = self.ig * self.mask.float()  # Mask out unused genes
+        filtered_ig = torch.sigmoid(filtered_ig)  # Apply sigmoid only to the used genes
+ 
+        # Get the filtered genes and corresponding indices
         filtered_genes = [gene for gene in current_genes if gene in self.gene_to_index]
         indices = [self.gene_to_index[gene] for gene in filtered_genes]
-        ig = torch.sigmoid(self.ig[indices])
+        ig = filtered_ig[indices]
+ 
         return ig, filtered_genes
-
-
 
 class MIL(nn.Module):
     def __init__(self, all_genes):
