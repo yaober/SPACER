@@ -49,6 +49,7 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
     mean_expression = tumor_cells_X_dense.mean(axis=0)
 
     # Select top n genes
+    print(f"Selecting top {n_genes} genes based on mean expression")
     top_n_genes = mean_expression.argsort()[-n_genes:][::-1]
 
     adata = adata[:, top_n_genes].copy()

@@ -27,7 +27,7 @@ class Gene_expression(nn.Module):
     def forward(self, x):
 
         b = self.b
-        x = self.softmax(-torch.exp(b) * x)
+        x = self.softmax(torch.exp(b) * x)
         return x
 
 class Immunogenicity(nn.Module):

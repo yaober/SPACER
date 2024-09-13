@@ -135,7 +135,7 @@ def main():
     parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping.')
     parser.add_argument('--delta', type=float, default=0.001, help='Minimum change to qualify as an improvement.')
     parser.add_argument('--max_instances', type=int, default=None, help='Maximum instances for the dataset.')
-    parser.add_argument('--n_genes', type=int, default=500, help='Number of genes to consider.')
+    parser.add_argument('--n_genes', type=int, default=10000, help='Number of genes to consider.')
     
     args = parser.parse_args()
     train_model(args)
