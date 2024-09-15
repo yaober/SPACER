@@ -9,12 +9,13 @@ class Distance(nn.Module):
     def __init__(self):
         super(Distance, self).__init__()
         self.a = nn.Parameter(torch.tensor(1.0),requires_grad=True)
-        self.sparsemax = Sparsemax(dim=0)
+        #self.sparsemax = Sparsemax(dim=0)
+        self.softmax = nn.Softmax(dim=0)
     
     def forward(self, x):
         #print(x)
         a = self.a
-        x = self.sparsemax(-torch.exp(a) * x)
+        x = self.softmax(-torch.exp(a) * x)
         return x
 
 class Gene_expression(nn.Module):

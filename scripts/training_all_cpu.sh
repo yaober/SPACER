@@ -17,4 +17,4 @@
 conda init
 conda activate spatial_tcr
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
-python train.py --data data/training_all.csv --reference_gene data/tumor_antigens.csv --output_dir ./test/all_cpu_revised_4000_30000genes_0.5 --immune_cell tcell --learning_rate 0.5 --num_epochs 1000 --patience 5 --delta 0.0001  --n_genes 3000    
+python train.py --data data/training_all.csv --reference_gene data/tumor_antigens.csv --output_dir ./test/all_cpu_revised_4000_30000genes_0.5 --immune_cell tcell --learning_rate 0.1 --num_epochs 1000 --patience 5 --delta 0.0001  --n_genes 3000    
