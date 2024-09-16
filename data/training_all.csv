@@ -18,6 +18,7 @@ adata,radius,resolution
 /project/DPDS/Wang_lab/shared/spatial_TCR/data/train_validate/Visium/HumanProstateCancerFFPE/T_cell.h5ad,150,low
 /project/DPDS/Wang_lab/shared/spatial_TCR/data/train_validate/VisiumHD/HumanColorectalCancer/T_cell.h5ad,75,high
 /project/DPDS/Wang_lab/shared/spatial_TCR/data/train_validate/VisiumHD/HumanLungCancer/T_cell.h5ad,75,high
-/project/DPDS/Wang_lab/s439765/spatial_tcr/SpatialVDJ/SpatialVDJ_forZenodo/data/breast_cancer/TumE2_preprocessed.h5ad,150,high
-/project/DPDS/Wang_lab/s439765/spatial_tcr/SpatialVDJ/SpatialVDJ_forZenodo/data/breast_cancer/TumC2_preprocessed.h5ad,150,high
-/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_TCR_scRNA/p16_preprocessed.h5ad,150,high
+/project/DPDS/Wang_lab/s439765/spatial_tcr/SpatialVDJ/SpatialVDJ_forZenodo/data/breast_cancer/TumE2_preprocessed.h5ad,150,low
+/project/DPDS/Wang_lab/s439765/spatial_tcr/SpatialVDJ/SpatialVDJ_forZenodo/data/breast_cancer/TumC2_preprocessed.h5ad,150,low
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_TCR_scRNA/p16_preprocessed.h5ad,150,low
+/project/DPDS/Wang_lab/s439765/spatial_tcr/slide_tag/slide_tag_melanoma_processed.h5ad,75,high
