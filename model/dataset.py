@@ -149,13 +149,14 @@ class BagsDataset(Dataset):
 
                 dist_matrix_row = cdist([spatial_coords[i]], spatial_coords, metric='euclidean')[0]
                 in_circle = np.where(dist_matrix_row <= radius)[0]
-                in_circle = [idx for idx in in_circle if cell_types[idx] != 0]
+                in_circle = [idx for idx in in_circle if cell_types[idx] == 1]
+                """print(cell_types[i])
+                print(cell_types[in_circle])
+                print(labels[i])"""
 
                 if resolution == 'high':
-                    if cell_types[i] == 1:
-                        in_circle.append(i)
-                    else:
-                        in_circle = [idx for idx in in_circle if idx != i]
+                    in_circle = [idx for idx in in_circle if idx != i]
+                
 
                 if len(in_circle) == 0:
                     continue
