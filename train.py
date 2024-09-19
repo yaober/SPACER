@@ -104,7 +104,7 @@ def train_model(args):
             print(f'Early stopping at epoch {epoch+1}')
             break
     
-    ig_scores_after_training = torch.sigmoid(model.immunogenicity.ig)
+    ig_scores_after_training = model.immunogenicity.ig
     ig_score = {
     'Gene': all_genes,
     'IG Score Before Training': [score.item() for score in ig_scores_before_training],

@@ -92,7 +92,7 @@ class MIL(nn.Module):
             #print(bag_output)
             bag_outputs.append(bag_output)
             #df = pd.DataFrame(bag_outputs)
-            #df.to_csv('output.csv')
+            #df.to_csv(soutput.csv')
     
         
         return torch.stack(bag_outputs).squeeze(dim=1)
