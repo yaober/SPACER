@@ -10,3 +10,5 @@ results/*
 *.pth
 10_old_data/*
 *.h5ad
+pretrained_models/*
+final_models/*

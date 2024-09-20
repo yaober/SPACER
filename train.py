@@ -16,11 +16,8 @@ os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
 
 def load_all_genes(reference_gene_file):
-    all_genes = []
-    with open(reference_gene_file, 'r') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            all_genes.append(row['Gene'])
+    all_genes = pd.read_csv(reference_gene_file)
+    all_genes = all_genes['Gene'].values.tolist()
     return all_genes
 
 def train_model(args):
@@ -104,7 +101,7 @@ def train_model(args):
             print(f'Early stopping at epoch {epoch+1}')
             break
     
-    ig_scores_after_training = model.immunogenicity.ig
+    ig_scores_after_training = torch.sigmoid(model.immunogenicity.ig)
     ig_score = {
     'Gene': all_genes,
     'IG Score Before Training': [score.item() for score in ig_scores_before_training],
