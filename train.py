@@ -53,21 +53,23 @@ def train_model(args):
     
     ig_scores_before_training = torch.sigmoid(model.immunogenicity.ig)
     for epoch in range(args.num_epochs):
-        model.train()
+        model.train() 
         running_loss = 0.0
         
         with tqdm(train_loader, unit="batch") as tepoch:
-            for i, (distances, gene_expressions, label, core_idx, current_genes) in enumerate(tepoch):
+            for i, (distances, gene_expressions, label, core_idx, gene_names, cell_ids) in enumerate(tepoch):
                 tepoch.set_description(f"Epoch {epoch+1}/{args.num_epochs}")
 
                 optimizer.zero_grad()
 
-                distances = torch.stack(distances).to(device)
-                gene_expressions = torch.stack(gene_expressions).to(device)
+                # Convert distances and gene expressions to tensors
+                distances = [d.to(device) for d in distances]
+                gene_expressions = [g.to(device) for g in gene_expressions]
                 label = label.clone().detach().float().to(device)
-                
-                output = model(distances, gene_expressions, list(current_genes[0]))
-                
+                current_genes = gene_names[0]  # Since batch_size=1
+
+                output = model(distances, gene_expressions, current_genes)
+
                 loss = criterion(output, label)
                 loss.backward()
                 optimizer.step()
@@ -75,32 +77,41 @@ def train_model(args):
                 running_loss += loss.item()
                 tepoch.set_postfix(loss=loss.item())
 
+
         epoch_loss = running_loss / len(train_loader)
         print(f'Epoch [{epoch+1}/{args.num_epochs}], Loss: {epoch_loss:.4f}')
+        
 
         model.eval()
         val_loss = 0.0
         val_predictions = []
         val_labels = []
         with torch.no_grad():
-            for val_distances, val_gene_expressions, val_label, _, val_current_genes in val_loader:
-                val_distances = torch.stack(val_distances).to(device)
-                val_gene_expressions = torch.stack(val_gene_expressions).to(device)
+            val_loss = 0.0
+            val_predictions = []
+            val_labels = []
+            for val_distances, val_gene_expressions, val_label, val_core_idx, val_gene_names, val_cell_ids in val_loader:
+                val_distances = [d.to(device) for d in val_distances]
+                val_gene_expressions = [g.to(device) for g in val_gene_expressions]
                 val_label = val_label.clone().detach().float().to(device)
-                val_output = model(val_distances, val_gene_expressions, list(val_current_genes[0]))
+                val_current_genes = val_gene_names[0]  # Since batch_size=1
+
+                val_output = model(val_distances, val_gene_expressions, val_current_genes)
                 val_loss += criterion(val_output, val_label).item()
                 val_predictions.extend(val_output.cpu().numpy())
                 val_labels.extend(val_label.cpu().numpy())
-        
-        val_loss /= len(val_loader)
-        val_auroc = roc_auc_score(val_labels, val_predictions)
-        print(f'Validation Loss: {val_loss:.4f}, Validation AUROC: {val_auroc:.4f}')
 
+            val_loss /= len(val_loader)
+            val_auroc = roc_auc_score(val_labels, val_predictions)
+            print(f'Validation Loss: {val_loss:.4f}, Validation AUROC: {val_auroc:.4f}')
+
+        
+    
         early_stopping(val_loss, model, epoch)
         if early_stopping.early_stop:
             print(f'Early stopping at epoch {epoch+1}')
             break
-    
+   
     ig_scores_after_training = torch.sigmoid(model.immunogenicity.ig)
     ig_score = {
     'Gene': all_genes,

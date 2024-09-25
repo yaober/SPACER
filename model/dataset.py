@@ -29,7 +29,8 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
 
     # Ensure adata is not a view
     adata = adata.copy()
-
+    adata.var_names_make_unique()  # Ensure unique gene names
+    
 
     # Filter the tumor cells
     tumor_cells = adata[adata.obs['cell_type'].astype(int) == 1].copy()
@@ -39,37 +40,45 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
     if tumor_cells.shape[0] == 0:
         print("Warning: No tumor cells found after filtering.")
 
-    # Check if the expression matrix is sparse and convert to dense if necessary
-    if issparse(tumor_cells.X):
-        tumor_cells_X_dense = tumor_cells.X.toarray()
-    else:
-        tumor_cells_X_dense = tumor_cells.X
-
     # Calculate mean expression
-    mean_expression = tumor_cells_X_dense.mean(axis=0)
+    if issparse(tumor_cells.X):
+        # Convert to dense and compute mean expression
+        mean_expression = np.asarray(tumor_cells.X.mean(axis=0)).ravel()
+    else:
+        mean_expression = tumor_cells.X.mean(axis=0)
+
+    # Get gene names
+    gene_names = tumor_cells.var_names
+    
 
     # Select top n genes
     print(f"Selecting top {n_genes} genes based on mean expression")
-    top_n_genes = mean_expression.argsort()[-n_genes:][::-1]
+    top_n_gene_indices = mean_expression.argsort()[-n_genes:][::-1]
+    top_n_gene_names = gene_names[top_n_gene_indices]
+    print(f"Top {n_genes} genes: {top_n_gene_names}")
 
-    adata = adata[:, top_n_genes].copy()
+    # Subset adata using gene names to keep indices consistent
+    adata = adata[:, top_n_gene_names].copy()
 
- 
-    
     adata.obs[immune_cell] = adata.obs[immune_cell].astype(float)
     tumor_cells.obs[immune_cell] = tumor_cells.obs[immune_cell].astype(float)
-    
+
     # Binarize the immune cell column based on the percentile value if resolution is not 'high'
     if resolution != 'high':
         if tumor_cells.obs[immune_cell].empty:
             print(f"Error: tumor_cells.obs[{immune_cell}] is empty.")
         else:
-            percentile_value = np.percentile(tumor_cells.obs[immune_cell], 50)
-            print(f"Percentile value: {percentile_value}")
-            adata.obs[immune_cell] = np.where(adata.obs[immune_cell] > percentile_value, 1, 0)
-            print(f"adata.obs[{immune_cell}] after binarization: {adata.obs[immune_cell].head()}")
+            unique_values = tumor_cells.obs[immune_cell].unique()
+            if set(unique_values).issubset({0, 1}):
+                print(f"tumor_cells.obs[{immune_cell}] is already binary. Skipping binarization.")
+            else:
+                percentile_value = np.percentile(tumor_cells.obs[immune_cell], 50)
+                print(f"Percentile value: {percentile_value}")
+                adata.obs[immune_cell] = np.where(adata.obs[immune_cell] > percentile_value, 1, 0)
+                print(f"adata.obs[{immune_cell}] after binarization: {adata.obs[immune_cell].head()}")
 
     return adata
+    
 
 
 class BagsDataset(Dataset):
@@ -140,9 +149,9 @@ class BagsDataset(Dataset):
                 raise ValueError("immune_cell must be either 'tcell' or 'bcell'")
             adata.obs['cell_type'] = adata.obs['cell_type'].astype(int)
             cell_types = adata.obs['cell_type'].values
-            barcodes = adata.obs.index.values
+            barcodes = adata.obs.index.values  # Get cell IDs
             gene_names = adata.var_names.tolist()
-            
+
             for i in trange(len(spatial_coords), desc=f"Creating Bags with radius {radius}", ncols=100, bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]"):
                 if cell_types[i] == 0:
                     continue
@@ -150,13 +159,9 @@ class BagsDataset(Dataset):
                 dist_matrix_row = cdist([spatial_coords[i]], spatial_coords, metric='euclidean')[0]
                 in_circle = np.where(dist_matrix_row <= radius)[0]
                 in_circle = [idx for idx in in_circle if cell_types[idx] == 1]
-                """print(cell_types[i])
-                print(cell_types[in_circle])
-                print(labels[i])"""
 
                 if resolution == 'high':
                     in_circle = [idx for idx in in_circle if idx != i]
-                
 
                 if len(in_circle) == 0:
                     continue
@@ -172,7 +177,8 @@ class BagsDataset(Dataset):
                     'gene_expression': gene_data,
                     'label': labels[i],
                     'core_idx': i,
-                    'gene_names': gene_names
+                    'gene_names': gene_names,
+                    'cell_id': barcodes[i]  # Store cell ID
                 }
 
                 bag_id += 1
@@ -184,8 +190,24 @@ class BagsDataset(Dataset):
 
         return bags
 
+    def __getitem__(self, idx):
+        bag = self.bags[idx]
+        distances = torch.tensor(bag['distances'], dtype=torch.float32)
+        gene_expression = bag['gene_expression']
+        if sp.issparse(gene_expression):
+            gene_expression = torch.tensor(gene_expression.todense(), dtype=torch.float32)
+        else:
+            gene_expression = torch.tensor(gene_expression, dtype=torch.float32)
+        label = torch.tensor(bag['label'], dtype=torch.float32)
+        core_idx = bag['core_idx']
+        gene_names = bag['gene_names']
+        cell_id = bag['cell_id']  # Include cell ID here
+        return distances, gene_expression, label, core_idx, gene_names, cell_id
+
+# Modify the 'custom_collate_fn' to include 'cell_id':
+
 def custom_collate_fn(batch):
-    distances, gene_expressions, labels, core_idxs, gene_names_list = zip(*batch)
+    distances, gene_expressions, labels, core_idxs, gene_names_list, cell_ids = zip(*batch)
     distances = [torch.tensor(np.array(d), dtype=torch.float32) for d in distances]
     gene_expressions_tensors = []
     for g in gene_expressions:
@@ -196,4 +218,4 @@ def custom_collate_fn(batch):
     labels = torch.tensor(labels, dtype=torch.float32)
     core_idxs = torch.tensor(core_idxs, dtype=torch.long)
     gene_names = gene_names_list
-    return distances, gene_expressions_tensors, labels, core_idxs, gene_names
+    return distances, gene_expressions_tensors, labels, core_idxs, gene_names, cell_ids

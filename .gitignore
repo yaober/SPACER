@@ -12,3 +12,5 @@ results/*
 *.h5ad
 pretrained_models/*
 final_models/*
+final_models/*
+simulate_data/*
