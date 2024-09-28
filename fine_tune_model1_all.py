@@ -7,7 +7,6 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import pandas as pd
-
 import scanpy as sc
 from torch.utils.data import DataLoader, random_split
 from sklearn.metrics import roc_auc_score
@@ -41,19 +40,19 @@ def load_all_genes(reference_gene_file):
 # %%
 # Set parameters (replace these with your own paths and settings)
 # Paths to data and model
-data_path = '/project/DPDS/Wang_lab/shared/spatial_TCR/data/train_validate/VisiumHD/HumanLungCancer'
-reference_gene_path = 'data/human.csv'
+data_path = 'data/training_all.csv'
+reference_gene_path = 'data/tumor_antigen_8000.csv'
 pretrained_gene_path = 'data/human.csv'  # Pre-trained gene list
-output_dir = os.path.join('fine_tuned_model', data_path.split('/')[-1])
-model_path = 'test/all_cpu_revised_human_0.1_10000/final_model.pth'  # Set to None if training from scratch
+output_dir = 'fine_tuned_model_10000/all_data_human2antigen'  # Output directory
+model_path = 'test/all_cpu_revised_human_0.1_10000_4/final_model.pth'  # Set to None if training from scratch
 
 
 # %%
 
 # Training parameters
 immune_cell = 'tcell'       # Type of immune cell to consider
-learning_rate = 0.1      # Learning rate for the optimizer
-num_epochs = 1000           # Number of epochs to train the model
+learning_rate = 0.05      # Learning rate for the optimizer
+num_epochs = 40           # Number of epochs to train the model
 patience = 5                # Patience for early stopping
 delta = 0.001               # Minimum change to qualify as an improvement
 max_instances = None        # Maximum instances for the dataset
@@ -163,8 +162,8 @@ optimizer = optim.SGD(model.parameters(), lr=learning_rate)
 
 # Load dataset
 # Replace 'BagsDataset' and 'custom_collate_fn' with your data loading functions
-adata = sc.read(os.path.join(data_path, 'T_cell.h5ad'))
-dataset = BagsDataset(adata, immune_cell=immune_cell, max_instances=max_instances, n_genes=n_genes, radius=150, resolution='high')
+#adata = sc.read(data_path)
+dataset = BagsDataset(data_path, immune_cell=immune_cell, max_instances=max_instances, n_genes=n_genes)
 train_size = int(0.7 * len(dataset))
 val_size = len(dataset) - train_size
 train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
@@ -198,7 +197,7 @@ for epoch in range(num_epochs):
             distances = torch.stack(distances).to(device)
             gene_expressions = torch.stack(gene_expressions).to(device)
             label = label.clone().detach().float().to(device)
-            
+
             output = model(distances, gene_expressions, list(gene_names[0]))
 
             loss = criterion(output, label)
@@ -230,11 +229,11 @@ for epoch in range(num_epochs):
     val_auroc = roc_auc_score(val_labels, val_predictions)
     print(f'Validation Loss: {val_loss:.4f}, Validation AUROC: {val_auroc:.4f}')
 
-    # Early stopping
+    """# Early stopping
     early_stopping(val_loss, model, epoch)
     if early_stopping.early_stop:
         print(f'Early stopping at epoch {epoch+1}')
-        break
+        break"""
 
 
 # %%
@@ -264,9 +263,6 @@ df.to_csv(output_path, index=False)
 torch.save(model.state_dict(), os.path.join(output_dir, 'final_model.pth'))
 
 print("Training complete. Model and IG scores saved.")
-
-# %%
-output_dir
 
 # %%
 

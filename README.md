@@ -30,4 +30,8 @@
 
   the cell in the center of the bag could have the label of T/B label=0 (tumor cell, negative case) or T/B label=1 (T/B cell, positive case)
 
- 
+ ine_tune_individual_pretrain2: pretrain model from 1st all huamn gebn 2nd 8000 tumor antigen gene, tune on all human gene
+fine_tuned_model_10000:  pretrain model from 1st all huamn gene , tune on 80000tumor antigen gene, using fine_tune_model1_indiviual.ipynb/fine_tune_model1_all.py, fine_tuned_model_10000/all_data_human2antigen is 1st all huamn gebn 2nd 8000 tumor antigen gene
+fine_tuned_model_by8000   pretrain model from tumor antigen gene 8000, bad 
+pretrained_models: train seperately on all human geen
+train_indiviual: rain seperately on all human geen

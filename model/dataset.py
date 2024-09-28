@@ -155,11 +155,15 @@ class BagsDataset(Dataset):
             for i in trange(len(spatial_coords), desc=f"Creating Bags with radius {radius}", ncols=100, bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]"):
                 if cell_types[i] == 0:
                     continue
-
                 dist_matrix_row = cdist([spatial_coords[i]], spatial_coords, metric='euclidean')[0]
                 in_circle = np.where(dist_matrix_row <= radius)[0]
                 in_circle = [idx for idx in in_circle if cell_types[idx] == 1]
-
+                num_tumor_cells = len(in_circle)
+                if resolution == 'high':
+                    if num_tumor_cells <10:
+                        continue
+                
+                
                 if resolution == 'high':
                     in_circle = [idx for idx in in_circle if idx != i]
 
@@ -168,6 +172,7 @@ class BagsDataset(Dataset):
 
                 if self.max_instances is not None and len(in_circle) > self.max_instances:
                     continue
+                
 
                 gene_data = gene_expression[in_circle]
                 distances = np.asmatrix(dist_matrix_row[in_circle].reshape(-1, 1), dtype=np.float32)

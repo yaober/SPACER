@@ -8,8 +8,8 @@
 
 #SBATCH -t 100-23:0:00
 
-#SBATCH -o job_%j_revised_10000genes_0.1.out
-#SBATCH -e job_%j_revised_10000genes_0.1.err
+#SBATCH -o job_%j_revised_10000genes_0.05.out
+#SBATCH -e job_%j_revised_10000genes_0.05.err
 
 #SBATCH --mail-type ALL
 #SBATCH --mail-user jia.yao@utsouthwestern.edu
@@ -17,4 +17,4 @@
 conda init
 conda activate spatial_tcr
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
-python train.py --data data/training_all.csv --reference_gene data/human.csv --output_dir ./test/all_cpu_revised_human_0.1_10000_4 --immune_cell tcell --learning_rate 0.1 --num_epochs 1000 --patience 5 --delta 0.0001  --n_genes 10000    
+python train.py --data data/training_all.csv --reference_gene data/human.csv --output_dir ./test/all_cpu_revised_human_0.1_10000_5 --immune_cell tcell --learning_rate 0.05 --num_epochs 1000 --patience 5 --delta 0.0001  --n_genes 10000    

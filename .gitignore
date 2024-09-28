@@ -10,7 +10,13 @@ results/*
 *.pth
 10_old_data/*
 *.h5ad
-pretrained_models/*
+fine_tuned_model/*
 final_models/*
 final_models/*
 simulate_data/*
+*.log
+fine_tune_individual_pretrain2
+fine_tuned_model_10000
+fine_tuned_model_by8000
+pretrained_models
+train_indiviual
