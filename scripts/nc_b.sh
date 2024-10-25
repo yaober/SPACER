@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name mil_10000
+#SBATCH --job-name nc_bcell
 
 # Name of the SLURM partition that this job should run on.
 #SBATCH -p 512GB   # partition (queue)
@@ -8,8 +8,8 @@
 
 #SBATCH -t 100-23:0:00
 
-#SBATCH -o job_%j_sigmod.out
-#SBATCH -e job_%j_sigmod.err
+#SBATCH -o job_%j_bcell.out
+#SBATCH -e job_%j_bcell.err
 
 #SBATCH --mail-type ALL
 #SBATCH --mail-user jia.yao@utsouthwestern.edu
@@ -17,4 +17,4 @@
 conda init
 conda activate spatial_tcr
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
-python train.py --data data/training_all.csv --reference_gene data/human.csv --output_dir ./negative_control/baseline --immune_cell tcell --learning_rate 0.1 --num_epochs 1000 --patience 5 --delta 0.0001  --n_genes 10000    
+python train.py --data data/negative_control_b_high.csv --reference_gene data/human.csv --output_dir ./negative_control_high/bcell --immune_cell bcell --learning_rate 0.1 --num_epochs 1000 --patience 5 --delta 0.0001  --n_genes 10000    

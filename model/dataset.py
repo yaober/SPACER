@@ -24,6 +24,14 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
         immune_cell = 'T'
     elif immune_cell == 'bcell':
         immune_cell = 'B'
+    elif immune_cell == 'macrophage':
+        immune_cell = 'Macrophage'
+    elif immune_cell == 'neutrophil':
+        immune_cell = 'Neutrophil'
+    elif immune_cell == 'fibroblast':
+        immune_cell = 'Fibroblast'
+    elif immune_cell == 'endothelial':
+        immune_cell = 'Endothelial'
     else:
         raise ValueError('Invalid immune cell type')
 
@@ -145,8 +153,16 @@ class BagsDataset(Dataset):
                 labels = adata.obs['T'].values
             elif self.immune_cell == 'bcell':
                 labels = adata.obs['B'].values
+            elif self.immune_cell == 'macrophage':
+                labels = adata.obs['Macrophage'].values
+            elif self.immune_cell == 'neutrophil':
+                labels = adata.obs['Neutrophil'].values
+            elif self.immune_cell == 'fibroblast':
+                labels = adata.obs['Fibroblast'].values
+            elif self.immune_cell == 'endothelial':
+                labels = adata.obs['Endothelial'].values
             else:
-                raise ValueError("immune_cell must be either 'tcell' or 'bcell'")
+                raise ValueError("Invalid immune cell type")
             adata.obs['cell_type'] = adata.obs['cell_type'].astype(int)
             cell_types = adata.obs['cell_type'].values
             barcodes = adata.obs.index.values  # Get cell IDs

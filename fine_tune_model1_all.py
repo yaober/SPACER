@@ -16,6 +16,7 @@ from model.model import MIL, EarlyStopping
 
 
 # %%
+
 # Device setup
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if device.type == "cuda":
@@ -30,10 +31,8 @@ print("=====================================")
 
 # Functions to load gene lists
 def load_all_genes(reference_gene_file):
-    
     all_genes = pd.read_csv(reference_gene_file)
     all_genes = all_genes['Gene'].values.tolist()
-    
     return all_genes
 
 
@@ -43,8 +42,8 @@ def load_all_genes(reference_gene_file):
 data_path = 'data/training_all.csv'
 reference_gene_path = 'data/tumor_antigen_8000.csv'
 pretrained_gene_path = 'data/human.csv'  # Pre-trained gene list
-output_dir = 'fine_tuned_model_10000/all_data_human2antigen'  # Output directory
-model_path = 'test/all_cpu_revised_human_0.1_10000_4/final_model.pth'  # Set to None if training from scratch
+output_dir = 'fine_tuned_model_20000_2000/all_data_human2antigen_final_100epochs'  # Output directory
+model_path = 'test/all_cpu_revised_human_0.1_10000_5/final_model.pth'  # Set to None if training from scratch
 
 
 # %%
@@ -52,7 +51,7 @@ model_path = 'test/all_cpu_revised_human_0.1_10000_4/final_model.pth'  # Set to 
 # Training parameters
 immune_cell = 'tcell'       # Type of immune cell to consider
 learning_rate = 0.05      # Learning rate for the optimizer
-num_epochs = 40           # Number of epochs to train the model
+num_epochs = 100           # Number of epochs to train the model
 patience = 5                # Patience for early stopping
 delta = 0.001               # Minimum change to qualify as an improvement
 max_instances = None        # Maximum instances for the dataset
@@ -161,8 +160,6 @@ optimizer = optim.SGD(model.parameters(), lr=learning_rate)
 # %%
 
 # Load dataset
-# Replace 'BagsDataset' and 'custom_collate_fn' with your data loading functions
-#adata = sc.read(data_path)
 dataset = BagsDataset(data_path, immune_cell=immune_cell, max_instances=max_instances, n_genes=n_genes)
 train_size = int(0.7 * len(dataset))
 val_size = len(dataset) - train_size
@@ -180,6 +177,16 @@ early_stopping = EarlyStopping(patience=patience, delta=delta)
 # Store IG scores before training
 ig_scores_before_training = torch.sigmoid(model.immunogenicity.ig.detach().cpu())
 
+# Metrics storage
+metrics = {
+    "epoch": [],
+    "train_loss": [],
+    "val_loss": [],
+    "val_auroc": [],
+}
+
+best_val_auroc = 0
+best_model_state_dict = None
 
 # %%
 
@@ -229,14 +236,27 @@ for epoch in range(num_epochs):
     val_auroc = roc_auc_score(val_labels, val_predictions)
     print(f'Validation Loss: {val_loss:.4f}, Validation AUROC: {val_auroc:.4f}')
 
-    """# Early stopping
-    early_stopping(val_loss, model, epoch)
+    # Save metrics
+    metrics["epoch"].append(epoch + 1)
+    metrics["train_loss"].append(epoch_loss)
+    metrics["val_loss"].append(val_loss)
+    metrics["val_auroc"].append(val_auroc)
+
+    # Update best model if AUROC is improved
+    if val_auroc > best_val_auroc:
+        best_val_auroc = val_auroc
+        best_model_state_dict = model.state_dict().copy()
+        print(f'New best model found at epoch {epoch + 1} with AUROC: {val_auroc:.4f}')
+
+    # Early stopping
+    """early_stopping(val_loss, model, epoch)
     if early_stopping.early_stop:
         print(f'Early stopping at epoch {epoch+1}')
         break"""
 
-
-# %%
+# Save metrics to CSV file
+metrics_df = pd.DataFrame(metrics)
+metrics_df.to_csv(os.path.join(output_dir, 'training_metrics.csv'), index=False)
 
 # Store IG scores after training
 ig_scores_after_training = torch.sigmoid(model.immunogenicity.ig.detach().cpu())
@@ -262,9 +282,9 @@ df.to_csv(output_path, index=False)
 # Save the final model
 torch.save(model.state_dict(), os.path.join(output_dir, 'final_model.pth'))
 
-print("Training complete. Model and IG scores saved.")
+# Save the best model and corresponding IG scores
+if best_model_state_dict:
+    torch.save(best_model_state_dict, os.path.join(output_dir, 'best_model.pth'))
+    print(f"Best model saved with AUROC: {best_val_auroc:.4f}")
 
-# %%
-
-
-
+print("Training complete. Model, IG scores, and metrics saved.")

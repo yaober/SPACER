@@ -20,3 +20,10 @@ fine_tuned_model_10000
 fine_tuned_model_by8000
 pretrained_models
 train_indiviual
+train_indiviual_lr_0.1
+fine_tune_individual_pretrain2_lr_0.1
+fine_tuned_model_20000_8000
+negative_control*
+fine_tune_individual_pretrain2_lr_0.1_epochs
+fine_tuned_model_20000_2000
+tmp*
