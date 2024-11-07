@@ -16,6 +16,7 @@ import scipy.sparse as sp
 from scipy.spatial.distance import cdist
 from tqdm import trange
 from scipy.sparse import issparse
+import random
 
 
 def preprocess_data(adata, immune_cell, n_genes, resolution):
@@ -61,6 +62,7 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
 
     # Select top n genes
     print(f"Selecting top {n_genes} genes based on mean expression")
+    n_genes = min(n_genes, len(gene_names))#revise
     top_n_gene_indices = mean_expression.argsort()[-n_genes:][::-1]
     top_n_gene_names = gene_names[top_n_gene_indices]
     print(f"Top {n_genes} genes: {top_n_gene_names}")
@@ -168,6 +170,9 @@ class BagsDataset(Dataset):
             barcodes = adata.obs.index.values  # Get cell IDs
             gene_names = adata.var_names.tolist()
 
+            positive_bags = []
+            negative_bags = []
+
             for i in trange(len(spatial_coords), desc=f"Creating Bags with radius {radius}", ncols=100, bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]"):
                 if cell_types[i] == 0:
                     continue
@@ -175,10 +180,9 @@ class BagsDataset(Dataset):
                 in_circle = np.where(dist_matrix_row <= radius)[0]
                 in_circle = [idx for idx in in_circle if cell_types[idx] == 1]
                 num_tumor_cells = len(in_circle)
-                if resolution == 'high':
-                    if num_tumor_cells <10:
-                        continue
-                
+
+                if resolution == 'high' and num_tumor_cells < 10:
+                    continue
                 
                 if resolution == 'high':
                     in_circle = [idx for idx in in_circle if idx != i]
@@ -188,12 +192,11 @@ class BagsDataset(Dataset):
 
                 if self.max_instances is not None and len(in_circle) > self.max_instances:
                     continue
-                
 
                 gene_data = gene_expression[in_circle]
                 distances = np.asmatrix(dist_matrix_row[in_circle].reshape(-1, 1), dtype=np.float32)
 
-                bags[bag_id] = {
+                bag = {
                     'distances': distances,
                     'gene_expression': gene_data,
                     'label': labels[i],
@@ -202,7 +205,22 @@ class BagsDataset(Dataset):
                     'cell_id': barcodes[i]  # Store cell ID
                 }
 
+                if labels[i] == 1:
+                    positive_bags.append(bag)
+                else:
+                    negative_bags.append(bag)
+
                 bag_id += 1
+
+            # Balance the number of positive and negative bags
+            if resolution == 'high':
+                if len(positive_bags) < len(negative_bags):
+                    negative_bags = random.sample(negative_bags, len(3*positive_bags))
+                elif len(negative_bags) < len(positive_bags):
+                    positive_bags = random.sample(positive_bags, len(negative_bags))
+
+            # Merge balanced positive and negative bags
+            bags = {i: bag for i, bag in enumerate(positive_bags + negative_bags)}
 
         total_bags = len(bags)
         avg_instances_per_bag = sum(bags[i]['gene_expression'].shape[0] for i in bags) / total_bags if total_bags > 0 else 0

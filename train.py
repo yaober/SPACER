@@ -63,7 +63,7 @@ def train_model(args):
     # Save IG scores before training
     ig_scores_before_training = model.immunogenicity.ig.clone().detach().cpu()
     ig_scores_before_training = [score.item() for score in ig_scores_before_training]  # Ensure it's a list of floats
-    print(f"IG Scores Before Training: {ig_scores_before_training}")
+    #print(f"IG Scores Before Training: {ig_scores_before_training}")
 
     for epoch in range(args.num_epochs):
         model.train()
@@ -130,7 +130,7 @@ def train_model(args):
     # Save IG scores after training
     ig_scores_after_training = model.immunogenicity.ig.clone().detach().cpu()
     ig_scores_after_training = [score.item() for score in ig_scores_after_training]  # Ensure it's a list of floats
-    print(f"IG Scores After Training: {ig_scores_after_training}")
+    #print(f"IG Scores After Training: {ig_scores_after_training}")
 
     # Save IG score changes to a CSV file
     ig_score_data = {

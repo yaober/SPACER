@@ -17,4 +17,4 @@
 module load python/3.8.x-anaconda
 conda activate spatial_tcr
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
-python visiumhd_finetune.py
+python test.py
