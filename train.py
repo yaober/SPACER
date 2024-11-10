@@ -27,6 +27,23 @@ def save_metrics(epoch, train_loss, val_loss, val_auroc, output_dir):
     with open(file_path, 'a') as f:
         f.write(f'{epoch},{train_loss},{val_loss},{val_auroc}\n')
 
+def save_ig_scores(epoch, all_genes, ig_scores_before_training, ig_scores_after_training, output_dir):
+    # Create a DataFrame with IG scores before and after the current epoch
+    ig_score_data = {
+        'Gene': all_genes,
+        'IG Score Before Training': ig_scores_before_training,
+        'IG Score After Training': ig_scores_after_training,
+    }
+    df = pd.DataFrame(ig_score_data)
+    
+    # Calculate the difference and add it as a new column
+    df['Difference'] = df['IG Score After Training'] - df['IG Score Before Training']
+    df = df.sort_values(by='Difference', ascending=False)
+
+    # Save to a CSV file for each epoch
+    output_path = os.path.join(output_dir, f'ig_score_changes_epoch_{epoch+1}.csv')
+    df.to_csv(output_path, index=False)
+
 def train_model(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type == "cuda":
@@ -62,8 +79,7 @@ def train_model(args):
 
     # Save IG scores before training
     ig_scores_before_training = model.immunogenicity.ig.clone().detach().cpu()
-    ig_scores_before_training = [score.item() for score in ig_scores_before_training]  # Ensure it's a list of floats
-    #print(f"IG Scores Before Training: {ig_scores_before_training}")
+    ig_scores_before_training = [score.item() for score in ig_scores_before_training]
 
     for epoch in range(args.num_epochs):
         model.train()
@@ -121,32 +137,16 @@ def train_model(args):
         # Save metrics
         save_metrics(epoch+1, train_loss, val_loss, val_auroc, args.output_dir)
 
+        # Save IG scores after each epoch
+        ig_scores_after_training = model.immunogenicity.ig.clone().detach().cpu()
+        ig_scores_after_training = [score.item() for score in ig_scores_after_training]
+        save_ig_scores(epoch, all_genes, ig_scores_before_training, ig_scores_after_training, args.output_dir)
+
         # Early stopping
         early_stopping(val_loss, model, epoch)
         if early_stopping.early_stop:
             print(f'Early stopping at epoch {epoch+1}')
             break
-
-    # Save IG scores after training
-    ig_scores_after_training = model.immunogenicity.ig.clone().detach().cpu()
-    ig_scores_after_training = [score.item() for score in ig_scores_after_training]  # Ensure it's a list of floats
-    #print(f"IG Scores After Training: {ig_scores_after_training}")
-
-    # Save IG score changes to a CSV file
-    ig_score_data = {
-        'Gene': all_genes,
-        'IG Score Before Training': ig_scores_before_training,
-        'IG Score After Training': ig_scores_after_training
-    }
-    df = pd.DataFrame(ig_score_data)
-
-    # Calculate the difference and add it as a new column
-    df['Difference'] = df['IG Score After Training'] - df['IG Score Before Training']
-    df = df.sort_values(by='Difference', ascending=False)
-
-    # Write the sorted DataFrame to a CSV file
-    output_path = os.path.join(args.output_dir, 'ig_score_changes.csv')
-    df.to_csv(output_path, index=False)
 
     # Save the final model
     torch.save(model.state_dict(), os.path.join(args.output_dir, 'final_model.pth'))

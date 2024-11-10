@@ -60,8 +60,8 @@ save(all_exp_mat,file="/project/DPDS/Wang_lab/shared/spatial_TCR/data/tumor_spec
 all_exp_mat_tumor=rowMeans(all_exp_mat[,grepl("TRUE",colnames(all_exp_mat))])
 all_exp_mat_normal=rowMeans(all_exp_mat[,!grepl("TRUE",colnames(all_exp_mat))])
 
-tumor_antigens=rownames(all_exp_mat)[(all_exp_mat_tumor>all_exp_mat_normal+0.06) & 
-    all_exp_mat_normal<0.6]
+tumor_antigens=rownames(all_exp_mat)[(all_exp_mat_tumor>all_exp_mat_normal+0.0001) & 
+    all_exp_mat_normal<2]
 length(tumor_antigens)
 
 #########  identify genes that have minimum expression in each normal cell type  ####
@@ -79,7 +79,7 @@ hpa=hpa[!hpa$Cell.type %in% c("Spermatocytes","Early spermatids","Spermatogonia"
   "Syncytiotrophoblasts"),] # genes that are highly expressed in early stage of human life
 hpa$nTPM=log(hpa$nTPM+1)
 hpa=aggregate(hpa$nTPM,by=list(hpa$Gene.name),function(x) quantile(x,0.95))
-normal_expressed_genes=hpa$Group.1[hpa$x>3.4]
+normal_expressed_genes=hpa$Group.1[hpa$x>5]
 
 tumor_antigens=tumor_antigens[!tumor_antigens %in% normal_expressed_genes]
 tumor_antigens=tumor_antigens[tumor_antigens!="?"]
@@ -93,3 +93,5 @@ length(tumor_antigens)
 
 write.table(tumor_antigens,file="/project/DPDS/Wang_lab/shared/spatial_TCR/data/tumor_specific_genes/tumor_antigens.txt",
             row.names = F,col.names = F,quote=F)
+write.table(normal_expressed_genes, file="/project/DPDS/Wang_lab/shared/spatial_TCR/data/tumor_specific_genes/normal_expressed_genes.txt",
+            row.names = F, col.names = F, quote = F)

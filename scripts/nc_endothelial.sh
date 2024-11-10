@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name nc_endothelial
+#SBATCH --job-name endothelial
 
 # Name of the SLURM partition that this job should run on.
 #SBATCH -p 512GB   # partition (queue)
@@ -14,7 +14,7 @@
 #SBATCH --mail-type ALL
 #SBATCH --mail-user jia.yao@utsouthwestern.edu
 
-conda init
-conda activate spatial_tcr
+source activate spatial_tcr
+
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
-python train.py --data data/endothelial.csv --reference_gene data/human.csv --output_dir ./finalize_model/endothelial --immune_cell endothelial --learning_rate 0.1 --num_epochs 1000 --patience 5 --delta 0.0001  --n_genes 10000    
+python train.py --data data/endothelial.csv --reference_gene data/human_filtered.csv --output_dir ./finalize_model_all_filtered/endothelial --immune_cell endothelial --learning_rate 0.1 --num_epochs 1000 --patience 5 --delta 0.0001  --n_genes 10000    
