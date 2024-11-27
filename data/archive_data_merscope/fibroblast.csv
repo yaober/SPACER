@@ -21,3 +21,10 @@ adata,radius,resolution
 /project/DPDS/Wang_lab/s439765/spatial_tcr/negative_control/low_res/HumanCervicalCancerFFPE_negative_control.h5ad,300,low
 /project/DPDS/Wang_lab/s439765/spatial_tcr/negative_control/low_res/HumanBreastCancerWholeTranscriptome_negative_control.h5ad,300,low
 /project/DPDS/Wang_lab/s439765/spatial_tcr/negative_control/low_res/HumanOvarianCancerFFPE_negative_control.h5ad,300,low
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/merscope_data/HumanLiverCancerPatient1/Fibroblast.h5ad,50,high
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/merscope_data/HumanOvarianCancerPatient1/Fibroblast.h5ad,50,high
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/merscope_data/HumanOvarianCancerPatient2Slice1/Fibroblast.h5ad,50,high
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/merscope_data/HumanColonCancerPatient1/Fibroblast.h5ad,50,high
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/merscope_data/HumanLiverCancerPatient2/Fibroblast.h5ad,50,high
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/merscope_data/HumanBreastCancerPatient1/Fibroblast.h5ad,50,high
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/merscope_data/HumanColonCancerPatient2/Fibroblast_filtered.h5ad,50,high

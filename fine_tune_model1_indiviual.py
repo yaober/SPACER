@@ -146,7 +146,7 @@ if model_path:
 
     print(f"Loaded matching model weights from {model_path} (excluding immunogenicity.ig).")
 
-ig_scores_before_training = torch.sigmoid(model.immunogenicity.ig.detach().cpu())
+ig_scores_before_training = model.immunogenicity.ig.clone().detach().cpu()
 # %%
 # Optionally freeze pre-trained parameters (excluding immunogenicity.ig)
 # for name, param in model.named_parameters():
@@ -167,9 +167,56 @@ train_size = int(0.7 * len(dataset))
 val_size = len(dataset) - train_size
 train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
-train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, collate_fn=custom_collate_fn)
+"""train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, collate_fn=custom_collate_fn)
 val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, collate_fn=custom_collate_fn)
+"""
+from torch.utils.data import Subset
+import random
 
+def balance_dataset(dataset, label_ratio=5):
+    # Separate bags by labels
+    label_0_indices = []
+    label_1_indices = []
+
+    for idx in range(len(dataset)):
+        _, _, label, _, _, _ = dataset[idx]
+        if label.item() == 0:
+            label_0_indices.append(idx)
+        else:
+            label_1_indices.append(idx)
+
+    # Calculate the number of label=0 bags to keep
+    num_label_1 = len(label_1_indices)
+    num_label_0_to_keep = min(len(label_0_indices), label_ratio * num_label_1)
+
+    # Randomly sample label=0 indices
+    sampled_label_0_indices = random.sample(label_0_indices, num_label_0_to_keep)
+
+    # Combine sampled label=0 indices and all label=1 indices
+    balanced_indices = sampled_label_0_indices + label_1_indices
+
+    # Shuffle the combined indices
+    random.shuffle(balanced_indices)
+
+    # Return a Subset of the original dataset
+    return Subset(dataset, balanced_indices)
+
+# Balance train and validation datasets
+balanced_train_dataset = balance_dataset(train_dataset, label_ratio=5)
+balanced_val_dataset = balance_dataset(val_dataset, label_ratio=5)
+
+# Create new DataLoaders with balanced datasets
+train_loader = DataLoader(balanced_train_dataset, batch_size=1, shuffle=True, collate_fn=custom_collate_fn)
+val_loader = DataLoader(balanced_val_dataset, batch_size=1, shuffle=True, collate_fn=custom_collate_fn)
+
+# Print the new label distribution
+train_labels_count = sum(1 for _, _, label, _, _, _ in train_loader if label.item() == 1)
+train_label_0_count = sum(1 for _, _, label, _, _, _ in train_loader if label.item() == 0)
+val_labels_count = sum(1 for _, _, label, _, _, _ in val_loader if label.item() == 1)
+val_label_0_count = sum(1 for _, _, label, _, _, _ in val_loader if label.item() == 0)
+
+print(f"Train dataset - Negative: {train_label_0_count}, Positive: {train_labels_count}")
+print(f"Validation dataset - Negative: {val_label_0_count}, Postive: {val_labels_count}")
 
 # %%
 # Initialize early stopping and variables to track the best model
@@ -182,6 +229,11 @@ metrics_log = []
 
 
 # %%
+# Training loop
+# List to store metrics and IG scores for logging
+metrics_log = []
+ig_score_log = []
+
 # Training loop
 for epoch in range(num_epochs):
     model.train()
@@ -234,20 +286,29 @@ for epoch in range(num_epochs):
         torch.save(model.state_dict(), best_model_path)
         print(f"Best model saved with AUROC: {best_auroc:.4f}")
 
-    # Log metrics
+    # Log metrics and IG scores
+    ig_scores_current = model.immunogenicity.ig.clone().detach().cpu().numpy()
     metrics_log.append({
         'epoch': epoch + 1,
         'training_loss': epoch_loss,
         'validation_loss': val_loss,
         'validation_auroc': val_auroc
     })
+    ig_score_log.append(ig_scores_current)
+
+    # Save IG scores for this epoch
+    ig_df = pd.DataFrame({
+        'Gene': all_genes,
+        'IG Score': ig_scores_current
+    })
+    ig_epoch_path = os.path.join(output_dir, f'ig_scores_epoch_{epoch+1}.csv')
+    ig_df.to_csv(ig_epoch_path, index=False)
 
     # Early stopping
-    """early_stopping(val_loss, model, epoch)
+    early_stopping(val_loss, model, epoch)
     if early_stopping.early_stop:
         print(f'Early stopping at epoch {epoch+1}')
-        break"""
-
+        break
 
 # %%
 # Save the metrics log to a CSV file
@@ -256,7 +317,7 @@ metrics_output_path = os.path.join(output_dir, 'training_metrics.csv')
 metrics_df.to_csv(metrics_output_path, index=False)
 
 # Store IG scores after training
-ig_scores_after_training = torch.sigmoid(model.immunogenicity.ig.detach().cpu())
+ig_scores_after_training = model.immunogenicity.ig.clone().detach().cpu()
 
 # Create DataFrame for IG scores
 ig_score = {

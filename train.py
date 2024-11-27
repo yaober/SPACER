@@ -143,10 +143,10 @@ def train_model(args):
         save_ig_scores(epoch, all_genes, ig_scores_before_training, ig_scores_after_training, args.output_dir)
 
         # Early stopping
-        early_stopping(val_loss, model, epoch)
+        """early_stopping(val_loss, model, epoch)
         if early_stopping.early_stop:
             print(f'Early stopping at epoch {epoch+1}')
-            break
+            break"""
 
     # Save the final model
     torch.save(model.state_dict(), os.path.join(args.output_dir, 'final_model.pth'))

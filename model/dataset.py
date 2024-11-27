@@ -132,7 +132,7 @@ class BagsDataset(Dataset):
             print(f"Reading adata from {adata_path}")
             resolution = row['resolution'] if 'resolution' in row and not pd.isna(row['resolution']) else self.resolution
             adata = sc.read_h5ad(adata_path)
-            sc.pp.filter_cells(adata, min_genes=100)
+            #sc.pp.filter_cells(adata, min_genes=100)
             adata.obs_names_make_unique()
             adata
             adata = preprocess_data(adata, self.immune_cell, self.n_genes,resolution=resolution)
