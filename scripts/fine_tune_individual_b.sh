@@ -9,7 +9,7 @@
 #SBATCH -t 100-23:0:00
 
 #SBATCH -o job_%j_fine_tune_bcell.out
-#SBATCH -e job_%j_fine_tune_indivual_bcell.err
+#SBATCH -e job_%j_fine_tune_bcell.err
 
 #SBATCH --mail-type ALL
 #SBATCH --mail-user jia.yao@utsouthwestern.edu
@@ -19,7 +19,7 @@ conda activate spatial_tcr
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
 conda activate spatial_tcr
 
-python fine_tune_model1_indiviual.py --data_path '/project/DPDS/Wang_lab/s439765/spatial_tcr/negative_control/high_res/HumanColorectalCancerB_negative_control.h5ad' --reference_gene_path 'data/human_filtered.csv' --pretrained_gene_path 'data/human_filtered.csv' --model_path 'finalize_model/bcell/best_model.pth' --output_dir './fine_tuned_model_bcell/HumanColorectalCancer' --resolution high --radius 150 --learning_rate 0.1 --num 200 --n_genes 18085 --immune_cell bcell
-python fine_tune_model1_indiviual.py --data_path '/project/DPDS/Wang_lab/s439765/spatial_tcr/negative_control/high_res/HumanLungCancerB_negative_control.h5ad' --reference_gene_path 'data/human_filtered.csv' --pretrained_gene_path 'data/human_filtered.csv' --model_path 'finalize_model/bcell/best_model.pth' --output_dir './fine_tuned_model_bcell/HumanLungCancerHD' --resolution high --radius 150 --learning_rate 0.1 --num 200 --n_genes 18085 --immune_cell bcell
+python fine_tune_model1_indiviual.py --data_path '/project/DPDS/Wang_lab/s439765/spatial_tcr/negative_control/high_res/HumanColorectalCancerB_negative_control.h5ad' --reference_gene_path 'data/human_filtered.csv' --pretrained_gene_path 'data/human_filtered.csv' --model_path 'finalize_model/bcell/best_model.pth' --output_dir './fine_tuned_model/bcell/HumanColorectalCancer' --resolution high --radius 150 --learning_rate 0.1 --num 50 --n_genes 18085 --immune_cell bcell
+python fine_tune_model1_indiviual.py --data_path '/project/DPDS/Wang_lab/s439765/spatial_tcr/negative_control/high_res/HumanLungCancerB_negative_control.h5ad' --reference_gene_path 'data/human_filtered.csv' --pretrained_gene_path 'data/human_filtered.csv' --model_path 'finalize_model/bcell/best_model.pth' --output_dir './fine_tuned_model/bcell/HumanLungCancerHD' --resolution high --radius 150 --learning_rate 0.1 --num 50 --n_genes 18085 --immune_cell bcell
 
 

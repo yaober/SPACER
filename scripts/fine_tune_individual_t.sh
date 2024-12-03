@@ -19,7 +19,7 @@ conda activate spatial_tcr
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
 conda activate spatial_tcr
 
-python fine_tune_model1_indiviual.py --data_path '/project/DPDS/Wang_lab/shared/spatial_TCR/data/train_validate/VisiumHD/HumanColorectalCancer/T_cell.h5ad' --reference_gene_path 'data/human_filtered.csv' --pretrained_gene_path 'data/human_filtered.csv' --model_path 'finalize_model/tcell/best_model.pth' --output_dir './fine_tuned_model_tcell/HumanColorectalCancer' --resolution high --radius 150 --learning_rate 0.1 --num 200 --n_genes 18085
-python fine_tune_model1_indiviual.py --data_path '/project/DPDS/Wang_lab/shared/spatial_TCR/data/train_validate/VisiumHD/HumanLungCancer/T_cell.h5ad' --reference_gene_path 'data/human_filtered.csv' --pretrained_gene_path 'data/human_filtered.csv' --model_path 'finalize_model/tcell/best_model.pth' --output_dir './fine_tuned_model_tcell/HumanLungCancerHD' --resolution high --radius 150 --learning_rate 0.1 --num 200 --n_genes 18085
+python fine_tune_model1_indiviual.py --data_path '/project/DPDS/Wang_lab/shared/spatial_TCR/data/train_validate/VisiumHD/HumanColorectalCancer/T_cell.h5ad' --reference_gene_path 'data/human_filtered.csv' --pretrained_gene_path 'data/human_filtered.csv' --model_path 'finalize_model/tcell/best_model.pth' --output_dir './fine_tuned_model/tcell/HumanColorectalCancer' --resolution high --radius 150 --learning_rate 0.1 --num 50 --n_genes 18085
+python fine_tune_model1_indiviual.py --data_path '/project/DPDS/Wang_lab/shared/spatial_TCR/data/train_validate/VisiumHD/HumanLungCancer/T_cell.h5ad' --reference_gene_path 'data/human_filtered.csv' --pretrained_gene_path 'data/human_filtered.csv' --model_path 'finalize_model/tcell/best_model.pth' --output_dir './fine_tuned_model/tcell/HumanLungCancerHD' --resolution high --radius 150 --learning_rate 0.1 --num 50 --n_genes 18085
 
 

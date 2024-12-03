@@ -28,3 +28,4 @@ fine_tune_individual_pretrain2_lr_0.1_epochs
 fine_tuned_model_20000_2000
 tmp*
 finalize*
+fine_tuned_model*

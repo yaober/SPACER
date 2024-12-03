@@ -9,7 +9,7 @@
 #SBATCH -t 100-23:0:00
 
 #SBATCH -o job_%j_fine_tune_neutrophil.out
-#SBATCH -e job_%j_fine_tune_indivual_neutrophil.err
+#SBATCH -e job_%j_fine_tune_neutrophil.err
 
 #SBATCH --mail-type ALL
 #SBATCH --mail-user jia.yao@utsouthwestern.edu
@@ -19,5 +19,5 @@ conda activate spatial_tcr
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
 conda activate spatial_tcr
 
-python fine_tune_model1_indiviual.py --data_path '/project/DPDS/Wang_lab/s439765/spatial_tcr/negative_control/high_res/HumanColorectalCancerNeutrophil_negative_control.h5ad' --reference_gene_path 'data/human_filtered.csv' --pretrained_gene_path 'data/human_filtered.csv' --model_path 'finalize_model/neutrophil/best_model.pth' --output_dir './fine_tuned_model_neutrophil/HumanColorectalCancer' --resolution high --radius 150 --learning_rate 0.1 --num 200 --n_genes 18085 --immune_cell neutrophil
+python fine_tune_model1_indiviual.py --data_path '/project/DPDS/Wang_lab/s439765/spatial_tcr/negative_control/high_res/HumanColorectalCancerNeutrophil_negative_control.h5ad' --reference_gene_path 'data/human_filtered.csv' --pretrained_gene_path 'data/human_filtered.csv' --model_path 'finalize_model/neutrophil/best_model.pth' --output_dir './fine_tuned_model/neutrophil/HumanColorectalCancer' --resolution high --radius 150 --learning_rate 0.1 --num 50 --n_genes 18085 --immune_cell neutrophil
 
