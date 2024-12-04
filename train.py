@@ -36,11 +36,9 @@ def save_ig_scores(epoch, all_genes, ig_scores_before_training, ig_scores_after_
     }
     df = pd.DataFrame(ig_score_data)
     
-    # Calculate the difference and add it as a new column
     df['Difference'] = df['IG Score After Training'] - df['IG Score Before Training']
     df = df.sort_values(by='Difference', ascending=False)
 
-    # Save to a CSV file for each epoch
     output_path = os.path.join(output_dir, f'ig_score_changes_epoch_{epoch+1}.csv')
     df.to_csv(output_path, index=False)
 
@@ -99,16 +97,13 @@ def train_model(args):
                 tepoch.set_description(f"Epoch {epoch+1}/{args.num_epochs}")
                 optimizer.zero_grad()
 
-                # Unpack the batch data
                 distances_list, gene_expressions_list, labels_list, core_idxs_list, gene_names_list, cell_ids_list = batch_data
                 
-                # Move data to device and prepare labels
                 distances_list = [distances.to(device) for distances in distances_list]
                 gene_expressions_list = [gene_exp.to(device) for gene_exp in gene_expressions_list]
                 labels = torch.stack(labels_list).float().to(device)
-                current_genes_list = gene_names_list  # List of gene names for each bag
-
-                # Forward pass
+                current_genes_list = gene_names_list  
+                
                 outputs = model(distances_list, gene_expressions_list, current_genes_list)
                 
                 if outputs is None:
@@ -131,7 +126,7 @@ def train_model(args):
                 
                 # Compute mean of negative outputs and loss
                 mean_negative_output = negative_outputs.mean()
-                positive_output = positive_output.mean()  # Should be a single value
+                positive_output = positive_output.mean() 
                 
                 loss = torch.relu(mean_negative_output - positive_output+0.1)
                 loss.backward()
@@ -140,7 +135,6 @@ def train_model(args):
                 running_loss += loss.item()
                 tepoch.set_postfix(loss=loss.item())
                 
-                # Accumulate outputs and labels for AUROC calculation
                 all_outputs.extend(outputs.detach().cpu().numpy())
                 all_labels.extend(labels.cpu().numpy())
 
@@ -162,10 +156,10 @@ def train_model(args):
         with torch.no_grad():
             with tqdm(val_loader, unit="batch") as vtepoch:
                 for val_batch_data in vtepoch:
-                    # Unpack validation batch data
+                 
                     val_distances_list, val_gene_expressions_list, val_labels_list, val_core_idxs_list, val_gene_names_list, val_cell_ids_list = val_batch_data
                     
-                    # Move data to device and prepare labels
+                    
                     val_distances_list = [distances.to(device) for distances in val_distances_list]
                     val_gene_expressions_list = [gene_exp.to(device) for gene_exp in val_gene_expressions_list]
                     val_labels = torch.stack(val_labels_list).float().to(device)
@@ -187,14 +181,14 @@ def train_model(args):
                     negative_idxs = (val_labels == 0).nonzero(as_tuple=True)[0]
                     
                     if positive_idxs.numel() == 0 or negative_idxs.numel() == 0:
-                        continue  # Skip batch if no positive or negative bags
+                        continue 
                     
                     positive_output = val_outputs[positive_idxs]
                     negative_outputs = val_outputs[negative_idxs]
                     
                     # Compute mean of negative outputs and loss
                     mean_negative_output = negative_outputs.mean()
-                    positive_output = positive_output.mean()  # Should be a single value
+                    positive_output = positive_output.mean()
                     
                     loss = torch.relu(mean_negative_output - positive_output)
                     val_loss += loss.item()

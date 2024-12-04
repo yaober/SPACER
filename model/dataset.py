@@ -137,10 +137,10 @@ class BagsDataset(Dataset):
             spatial_coords_y = adata.obs['Y'].astype(float)
             spatial_coords = np.array(list(zip(spatial_coords_x, spatial_coords_y)))
             gene_expression = adata.X
-            labels = adata.obs[self.immune_cell].values.astype(int)  # Ensure labels are integers
+            labels = adata.obs[self.immune_cell].values.astype(int)  
             adata.obs['cell_type'] = adata.obs['cell_type'].astype(int)
             cell_types = adata.obs['cell_type'].values
-            barcodes = adata.obs.index.values  # Get cell IDs
+            barcodes = adata.obs.index.values  
             gene_names = adata.var_names.tolist()
 
             for i in trange(len(spatial_coords), desc=f"Creating Bags with radius {radius}", ncols=100):
@@ -176,13 +176,12 @@ class BagsDataset(Dataset):
                 else:
                     negative_bags.append(bag)
 
-            # Now create batches
             num_negative_per_batch = self.k - 1
             if len(negative_bags) < num_negative_per_batch:
                 print(f"Not enough negative bags in this adata to create batches. Dropping extra positive bags.")
                 num_batches = len(negative_bags) // num_negative_per_batch
                 if num_batches == 0:
-                    continue  # Cannot create any batches from this adata
+                    continue 
                 if len(positive_bags) > num_batches:
                     positive_bags = positive_bags[:num_batches]
             else:
@@ -191,11 +190,9 @@ class BagsDataset(Dataset):
                     positive_bags = positive_bags[:num_batches]
                 if len(negative_bags) > num_batches * num_negative_per_batch:
                     negative_bags = negative_bags[:num_batches * num_negative_per_batch]
-
-            # Shuffle the negative bags
+        
             np.random.shuffle(negative_bags)
 
-            # Create batches
             for i in range(num_batches):
                 batch = [positive_bags[i]] + negative_bags[i * num_negative_per_batch: (i + 1) * num_negative_per_batch]
                 all_batches.append(batch)
@@ -205,11 +202,9 @@ class BagsDataset(Dataset):
         return all_batches
 
 
-# Modify the 'custom_collate_fn' to handle batches:
 
 def custom_collate_fn(batch):
-    # batch is a list with one element (since batch_size=1)
-    # batch[0] is a list of bag dictionaries
+    
     batch_bags = batch[0]
     distances_list = []
     gene_expressions_list = []
