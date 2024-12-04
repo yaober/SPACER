@@ -6,39 +6,15 @@ import torch
 import scipy.sparse as sp
 from scipy.spatial.distance import cdist
 from tqdm import trange
-
-from torch.utils.data import Dataset
-import pandas as pd
-import scanpy as sc
-import numpy as np
-import torch
-import scipy.sparse as sp
-from scipy.spatial.distance import cdist
-from tqdm import trange
 from scipy.sparse import issparse
 
 
 def preprocess_data(adata, immune_cell, n_genes, resolution):
     # Read the data
-    if immune_cell == 'tcell':
-        immune_cell = 'T'
-    elif immune_cell == 'bcell':
-        immune_cell = 'B'
-    elif immune_cell == 'macrophage':
-        immune_cell = 'Macrophage'
-    elif immune_cell == 'neutrophil':
-        immune_cell = 'Neutrophil'
-    elif immune_cell == 'fibroblast':
-        immune_cell = 'Fibroblast'
-    elif immune_cell == 'endothelial':
-        immune_cell = 'Endothelial'
-    else:
-        raise ValueError('Invalid immune cell type')
 
     # Ensure adata is not a view
     adata = adata.copy()
     adata.var_names_make_unique()  # Ensure unique gene names
-    
 
     # Filter the tumor cells
     print(adata.obs['cell_type'].unique())
@@ -58,12 +34,11 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
 
     # Get gene names
     gene_names = tumor_cells.var_names
-    
 
     # Select top n genes
     print(f"Selecting top {n_genes} genes based on mean expression")
     if n_genes > len(gene_names):
-        n_genes = int(len(gene_names)*0.2)
+        n_genes = int(len(gene_names) * 0.2)
     top_n_gene_indices = mean_expression.argsort()[-n_genes:][::-1]
     top_n_gene_names = gene_names[top_n_gene_indices]
     print(f"Top {n_genes} genes: {top_n_gene_names}")
@@ -89,40 +64,49 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
                 print(f"adata.obs[{immune_cell}] after binarization: {adata.obs[immune_cell].head()}")
 
     return adata
-    
 
 
 class BagsDataset(Dataset):
-    def __init__(self, input_data, immune_cell, max_instances=None, radius=200, resolution='low',n_genes=500):
-        self.immune_cell = immune_cell
+    def __init__(self, input_data, immune_cell, max_instances=None, radius=200, resolution='low', n_genes=500, k=2):
+        self.immune_cell = map_immune_cell(immune_cell)
         self.max_instances = max_instances
         self.radius = radius
         self.resolution = resolution
         self.n_genes = n_genes
+        self.k = k  # Number of bags per batch
         if isinstance(input_data, str):
-            self.bags = self.create_bags_from_csv(input_data)
+            self.batches = self.create_bags_from_csv(input_data)
         elif isinstance(input_data, sc.AnnData):
-            input_data = preprocess_data(input_data, immune_cell,n_genes,self.resolution)
+            input_data = preprocess_data(input_data, immune_cell, n_genes, self.resolution)
             print(f"Preprocessed data: {input_data.X.shape}")
-            self.bags = self.create_bags_from_adata(input_data)
+            self.batches = self.create_bags_from_adata(input_data)
         else:
             raise ValueError("input_data must be either a path to a CSV file or an AnnData object")
 
     def __len__(self):
-        return len(self.bags)
+        return len(self.batches)
 
     def __getitem__(self, idx):
-        bag = self.bags[idx]
-        distances = torch.tensor(bag['distances'], dtype=torch.float32)
-        gene_expression = bag['gene_expression']
-        if sp.issparse(gene_expression):
-            gene_expression = torch.tensor(gene_expression.todense(), dtype=torch.float32)
-        else:
-            gene_expression = torch.tensor(gene_expression, dtype=torch.float32)
-        label = torch.tensor(bag['label'], dtype=torch.float32)
-        core_idx = bag['core_idx']
-        gene_names = bag['gene_names']
-        return distances, gene_expression, label, core_idx, gene_names
+        batch = self.batches[idx]
+        # batch is a list of bags
+        batch_data = []
+        for bag in batch:
+            distances = bag['distances']
+            gene_expression = bag['gene_expression']
+            label = bag['label']
+            core_idx = bag['core_idx']
+            gene_names = bag['gene_names']
+            cell_id = bag['cell_id']
+            bag_dict = {
+                'distances': distances,
+                'gene_expression': gene_expression,
+                'label': label,
+                'core_idx': core_idx,
+                'gene_names': gene_names,
+                'cell_id': cell_id
+            }
+            batch_data.append(bag_dict)
+        return batch_data
 
     def create_bags_from_csv(self, csv_file):
         data = pd.read_csv(csv_file)
@@ -132,10 +116,8 @@ class BagsDataset(Dataset):
             print(f"Reading adata from {adata_path}")
             resolution = row['resolution'] if 'resolution' in row and not pd.isna(row['resolution']) else self.resolution
             adata = sc.read_h5ad(adata_path)
-            #sc.pp.filter_cells(adata, min_genes=100)
             adata.obs_names_make_unique()
-            adata
-            adata = preprocess_data(adata, self.immune_cell, self.n_genes,resolution=resolution)
+            adata = preprocess_data(adata, self.immune_cell, self.n_genes, resolution=resolution)
             radius = row['radius'] if 'radius' in row and not pd.isna(row['radius']) else self.radius
             adata_radius_list.append((adata, radius, resolution))
             print(f"Processing: adata={adata_path.split('/')[-1]}, radius={radius}, resolution={resolution}")
@@ -146,102 +128,126 @@ class BagsDataset(Dataset):
         return self.create_bags(adata_radius_list)
 
     def create_bags(self, adata_radius_list):
-        bags = {}
-        bag_id = 0
-
+        all_batches = []
         for adata, radius, resolution in adata_radius_list:
+            # Collect positive and negative bags per adata
+            positive_bags = []
+            negative_bags = []
             spatial_coords_x = adata.obs['X'].astype(float)
             spatial_coords_y = adata.obs['Y'].astype(float)
             spatial_coords = np.array(list(zip(spatial_coords_x, spatial_coords_y)))
             gene_expression = adata.X
-            if self.immune_cell == 'tcell':
-                labels = adata.obs['T'].values
-            elif self.immune_cell == 'bcell':
-                labels = adata.obs['B'].values
-            elif self.immune_cell == 'macrophage':
-                labels = adata.obs['Macrophage'].values
-            elif self.immune_cell == 'neutrophil':
-                labels = adata.obs['Neutrophil'].values
-            elif self.immune_cell == 'fibroblast':
-                labels = adata.obs['Fibroblast'].values
-            elif self.immune_cell == 'endothelial':
-                labels = adata.obs['Endothelial'].values
-            else:
-                raise ValueError("Invalid immune cell type")
+            labels = adata.obs[self.immune_cell].values.astype(int)  # Ensure labels are integers
             adata.obs['cell_type'] = adata.obs['cell_type'].astype(int)
             cell_types = adata.obs['cell_type'].values
             barcodes = adata.obs.index.values  # Get cell IDs
             gene_names = adata.var_names.tolist()
 
-            for i in trange(len(spatial_coords), desc=f"Creating Bags with radius {radius}", ncols=100, bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]"):
+            for i in trange(len(spatial_coords), desc=f"Creating Bags with radius {radius}", ncols=100):
                 if cell_types[i] == 0:
                     continue
                 dist_matrix_row = cdist([spatial_coords[i]], spatial_coords, metric='euclidean')[0]
                 in_circle = np.where(dist_matrix_row <= radius)[0]
                 in_circle = [idx for idx in in_circle if cell_types[idx] == 1]
                 num_tumor_cells = len(in_circle)
-                if resolution == 'high':
-                    if num_tumor_cells <10:
-                        continue
-                
-                
+                if resolution == 'high' and num_tumor_cells < 10:
+                    continue
                 if resolution == 'high':
                     in_circle = [idx for idx in in_circle if idx != i]
-
                 if len(in_circle) == 0:
                     continue
-
                 if self.max_instances is not None and len(in_circle) > self.max_instances:
                     continue
-                
 
                 gene_data = gene_expression[in_circle]
                 distances = np.asmatrix(dist_matrix_row[in_circle].reshape(-1, 1), dtype=np.float32)
 
-                bags[bag_id] = {
+                bag = {
                     'distances': distances,
                     'gene_expression': gene_data,
                     'label': labels[i],
                     'core_idx': i,
                     'gene_names': gene_names,
-                    'cell_id': barcodes[i]  # Store cell ID
+                    'cell_id': barcodes[i]
                 }
 
-                bag_id += 1
+                if labels[i] == 1:
+                    positive_bags.append(bag)
+                else:
+                    negative_bags.append(bag)
 
-        total_bags = len(bags)
-        avg_instances_per_bag = sum(bags[i]['gene_expression'].shape[0] for i in bags) / total_bags if total_bags > 0 else 0
-        print(f"Total bags created: {total_bags}")
-        print(f"Average instances per bag: {avg_instances_per_bag:.0f}")
+            # Now create batches
+            num_negative_per_batch = self.k - 1
+            if len(negative_bags) < num_negative_per_batch:
+                print(f"Not enough negative bags in this adata to create batches. Dropping extra positive bags.")
+                num_batches = len(negative_bags) // num_negative_per_batch
+                if num_batches == 0:
+                    continue  # Cannot create any batches from this adata
+                if len(positive_bags) > num_batches:
+                    positive_bags = positive_bags[:num_batches]
+            else:
+                num_batches = min(len(positive_bags), len(negative_bags) // num_negative_per_batch)
+                if len(positive_bags) > num_batches:
+                    positive_bags = positive_bags[:num_batches]
+                if len(negative_bags) > num_batches * num_negative_per_batch:
+                    negative_bags = negative_bags[:num_batches * num_negative_per_batch]
 
-        return bags
+            # Shuffle the negative bags
+            np.random.shuffle(negative_bags)
 
-    def __getitem__(self, idx):
-        bag = self.bags[idx]
-        distances = torch.tensor(bag['distances'], dtype=torch.float32)
-        gene_expression = bag['gene_expression']
+            # Create batches
+            for i in range(num_batches):
+                batch = [positive_bags[i]] + negative_bags[i * num_negative_per_batch: (i + 1) * num_negative_per_batch]
+                all_batches.append(batch)
+
+        total_batches = len(all_batches)
+        print(f"Total batches created: {total_batches}")
+        return all_batches
+
+
+# Modify the 'custom_collate_fn' to handle batches:
+
+def custom_collate_fn(batch):
+    # batch is a list with one element (since batch_size=1)
+    # batch[0] is a list of bag dictionaries
+    batch_bags = batch[0]
+    distances_list = []
+    gene_expressions_list = []
+    labels_list = []
+    core_idxs_list = []
+    gene_names_list = []
+    cell_ids_list = []
+    for bag_data in batch_bags:
+        distances = torch.tensor(bag_data['distances'], dtype=torch.float32)
+        gene_expression = bag_data['gene_expression']
         if sp.issparse(gene_expression):
             gene_expression = torch.tensor(gene_expression.todense(), dtype=torch.float32)
         else:
             gene_expression = torch.tensor(gene_expression, dtype=torch.float32)
-        label = torch.tensor(bag['label'], dtype=torch.float32)
-        core_idx = bag['core_idx']
-        gene_names = bag['gene_names']
-        cell_id = bag['cell_id']  # Include cell ID here
-        return distances, gene_expression, label, core_idx, gene_names, cell_id
+        label = torch.tensor(bag_data['label'], dtype=torch.float32)
+        core_idx = bag_data['core_idx']
+        gene_names = bag_data['gene_names']
+        cell_id = bag_data['cell_id']
+        distances_list.append(distances)
+        gene_expressions_list.append(gene_expression)
+        labels_list.append(label)
+        core_idxs_list.append(core_idx)
+        gene_names_list.append(gene_names)
+        cell_ids_list.append(cell_id)
+    return distances_list, gene_expressions_list, labels_list, core_idxs_list, gene_names_list, cell_ids_list
 
-# Modify the 'custom_collate_fn' to include 'cell_id':
 
-def custom_collate_fn(batch):
-    distances, gene_expressions, labels, core_idxs, gene_names_list, cell_ids = zip(*batch)
-    distances = [torch.tensor(np.array(d), dtype=torch.float32) for d in distances]
-    gene_expressions_tensors = []
-    for g in gene_expressions:
-        if sp.issparse(g):
-            gene_expressions_tensors.append(torch.tensor(g.todense(), dtype=torch.float32))
-        else:
-            gene_expressions_tensors.append(g.clone().detach().float())
-    labels = torch.tensor(labels, dtype=torch.float32)
-    core_idxs = torch.tensor(core_idxs, dtype=torch.long)
-    gene_names = gene_names_list
-    return distances, gene_expressions_tensors, labels, core_idxs, gene_names, cell_ids
+
+def map_immune_cell(immune_cell):
+    mapping = {
+        'tcell': 'T',
+        'bcell': 'B',
+        'macrophage': 'Macrophage',
+        'neutrophil': 'Neutrophil',
+        'fibroblast': 'Fibroblast',
+        'endothelial': 'Endothelial',
+    }
+    if immune_cell in mapping:
+        return mapping[immune_cell]
+    else:
+        raise ValueError('Invalid immune cell type')

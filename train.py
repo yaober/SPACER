@@ -59,14 +59,19 @@ def train_model(args):
     # Create the output directory if it does not exist
     os.makedirs(args.output_dir, exist_ok=True)
 
-    # Initialize the model, criterion, optimizer, and early stopping
-    model = MIL(all_genes).to(device)
-    criterion = nn.BCELoss().to(device)
+    # Initialize the model, optimizer, and early stopping
+    model = MIL(all_genes).to(device)  # Adjust 'k' as needed
     optimizer = optim.SGD(model.parameters(), lr=args.learning_rate)
     early_stopping = EarlyStopping(patience=args.patience, delta=args.delta)
     
     # Load dataset and create DataLoader
-    dataset = BagsDataset(args.data, immune_cell=args.immune_cell, max_instances=args.max_instances, n_genes=args.n_genes)
+    dataset = BagsDataset(
+        args.data,
+        immune_cell=args.immune_cell,
+        max_instances=args.max_instances,
+        n_genes=args.n_genes,
+        k=2  # Ensure 'k' matches the number of negative bags per batch
+    )
     train_size = int(0.7 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
@@ -85,48 +90,129 @@ def train_model(args):
         model.train()
         running_loss = 0.0
         
+        # Lists to store outputs and labels for AUROC calculation
+        all_outputs = []
+        all_labels = []
+        
         with tqdm(train_loader, unit="batch") as tepoch:
-            for i, (distances, gene_expressions, label, core_idx, gene_names, cell_ids) in enumerate(tepoch):
+            for i, batch_data in enumerate(tepoch):
                 tepoch.set_description(f"Epoch {epoch+1}/{args.num_epochs}")
                 optimizer.zero_grad()
 
-                # Convert distances and gene expressions to tensors
-                distances = [d.to(device) for d in distances]
-                gene_expressions = [g.to(device) for g in gene_expressions]
-                label = label.clone().detach().float().to(device)
-                current_genes = gene_names[0]  # Since batch_size=1
+                # Unpack the batch data
+                distances_list, gene_expressions_list, labels_list, core_idxs_list, gene_names_list, cell_ids_list = batch_data
+                
+                # Move data to device and prepare labels
+                distances_list = [distances.to(device) for distances in distances_list]
+                gene_expressions_list = [gene_exp.to(device) for gene_exp in gene_expressions_list]
+                labels = torch.stack(labels_list).float().to(device)
+                current_genes_list = gene_names_list  # List of gene names for each bag
 
-                output = model(distances, gene_expressions, current_genes)
-                loss = criterion(output, label)
+                # Forward pass
+                outputs = model(distances_list, gene_expressions_list, current_genes_list)
+                
+                if outputs is None:
+                    continue  # Skip this batch if the model returns None
+                
+                if outputs.shape[0] != labels.shape[0]:
+                    # Handle mismatch in batch sizes if necessary
+                    continue
+                
+                # Compute custom loss
+                # Identify positive and negative outputs
+                positive_idxs = (labels == 1).nonzero(as_tuple=True)[0]
+                negative_idxs = (labels == 0).nonzero(as_tuple=True)[0]
+                
+                if positive_idxs.numel() == 0 or negative_idxs.numel() == 0:
+                    continue  # Skip batch if no positive or negative bags
+                
+                positive_output = outputs[positive_idxs]
+                negative_outputs = outputs[negative_idxs]
+                
+                # Compute mean of negative outputs and loss
+                mean_negative_output = negative_outputs.mean()
+                positive_output = positive_output.mean()  # Should be a single value
+                
+                loss = torch.relu(mean_negative_output - positive_output+0.1)
                 loss.backward()
                 optimizer.step()
-
+        
                 running_loss += loss.item()
                 tepoch.set_postfix(loss=loss.item())
+                
+                # Accumulate outputs and labels for AUROC calculation
+                all_outputs.extend(outputs.detach().cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
 
         train_loss = running_loss / len(train_loader)
-        print(f'Epoch [{epoch+1}/{args.num_epochs}], Loss: {train_loss:.4f}')
+        
+        # Compute Training AUROC
+        try:
+            epoch_auc = roc_auc_score(all_labels, all_outputs)
+        except ValueError:
+            epoch_auc = float('nan')  # Handle case where AUROC can't be computed
+        
+        print(f'Epoch [{epoch+1}/{args.num_epochs}], Loss: {train_loss:.4f}, AUROC: {epoch_auc:.4f}')
         
         # Validation phase
         model.eval()
         val_loss = 0.0
-        val_predictions = []
-        val_labels = []
+        val_all_outputs = []
+        val_all_labels = []
         with torch.no_grad():
-            for val_distances, val_gene_expressions, val_label, val_core_idx, val_gene_names, val_cell_ids in val_loader:
-                val_distances = [d.to(device) for d in val_distances]
-                val_gene_expressions = [g.to(device) for g in val_gene_expressions]
-                val_label = val_label.clone().detach().float().to(device)
-                val_current_genes = val_gene_names[0]  # Since batch_size=1
-
-                val_output = model(val_distances, val_gene_expressions, val_current_genes)
-                val_loss += criterion(val_output, val_label).item()
-                val_predictions.extend(val_output.cpu().numpy())
-                val_labels.extend(val_label.cpu().numpy())
-
-        val_loss /= len(val_loader)
-        val_auroc = roc_auc_score(val_labels, val_predictions)
-        print(f'Validation Loss: {val_loss:.4f}, Validation AUROC: {val_auroc:.4f}')
+            with tqdm(val_loader, unit="batch") as vtepoch:
+                for val_batch_data in vtepoch:
+                    # Unpack validation batch data
+                    val_distances_list, val_gene_expressions_list, val_labels_list, val_core_idxs_list, val_gene_names_list, val_cell_ids_list = val_batch_data
+                    
+                    # Move data to device and prepare labels
+                    val_distances_list = [distances.to(device) for distances in val_distances_list]
+                    val_gene_expressions_list = [gene_exp.to(device) for gene_exp in val_gene_expressions_list]
+                    val_labels = torch.stack(val_labels_list).float().to(device)
+                    val_current_genes_list = val_gene_names_list  # List of gene names for each bag
+                    
+                    # Forward pass
+                    val_outputs = model(val_distances_list, val_gene_expressions_list, val_current_genes_list)
+                    
+                    if val_outputs is None:
+                        continue  # Skip this batch if the model returns None
+                    
+                    if val_outputs.shape[0] != val_labels.shape[0]:
+                        # Handle mismatch in batch sizes if necessary
+                        continue
+                    
+                    # Compute custom loss
+                    # Identify positive and negative outputs
+                    positive_idxs = (val_labels == 1).nonzero(as_tuple=True)[0]
+                    negative_idxs = (val_labels == 0).nonzero(as_tuple=True)[0]
+                    
+                    if positive_idxs.numel() == 0 or negative_idxs.numel() == 0:
+                        continue  # Skip batch if no positive or negative bags
+                    
+                    positive_output = val_outputs[positive_idxs]
+                    negative_outputs = val_outputs[negative_idxs]
+                    
+                    # Compute mean of negative outputs and loss
+                    mean_negative_output = negative_outputs.mean()
+                    positive_output = positive_output.mean()  # Should be a single value
+                    
+                    loss = torch.relu(mean_negative_output - positive_output)
+                    val_loss += loss.item()
+                    vtepoch.set_postfix(val_loss=loss.item())
+                    
+                    # Accumulate outputs and labels for AUROC calculation
+                    val_all_outputs.extend(val_outputs.detach().cpu().numpy())
+                    val_all_labels.extend(val_labels.cpu().numpy())
+            
+            val_loss /= len(val_loader)
+            
+            # Compute Validation AUROC
+            try:
+                val_epoch_auc = roc_auc_score(val_all_labels, val_all_outputs)
+            except ValueError:
+                val_epoch_auc = float('nan')  # Handle case where AUROC can't be computed
+            
+            print(f'Validation Loss: {val_loss:.4f}, Validation AUROC: {val_epoch_auc:.4f}')
 
         # Save the best model
         if val_loss < best_val_loss:
@@ -135,19 +221,13 @@ def train_model(args):
             print(f"Best model saved with validation loss {val_loss:.4f}")
 
         # Save metrics
-        save_metrics(epoch+1, train_loss, val_loss, val_auroc, args.output_dir)
+        save_metrics(epoch+1, train_loss, val_loss, val_epoch_auc, args.output_dir)
 
         # Save IG scores after each epoch
         ig_scores_after_training = model.immunogenicity.ig.clone().detach().cpu()
         ig_scores_after_training = [score.item() for score in ig_scores_after_training]
         save_ig_scores(epoch, all_genes, ig_scores_before_training, ig_scores_after_training, args.output_dir)
-
-        # Early stopping
-        """early_stopping(val_loss, model, epoch)
-        if early_stopping.early_stop:
-            print(f'Early stopping at epoch {epoch+1}')
-            break"""
-
+    
     # Save the final model
     torch.save(model.state_dict(), os.path.join(args.output_dir, 'final_model.pth'))
 

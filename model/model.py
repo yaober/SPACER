@@ -51,51 +51,49 @@ class MIL(nn.Module):
         self.distance = Distance()
         self.gene_expression = Gene_expression()
         self.immunogenicity = Immunogenicity(all_genes)
-        self.alpha = nn.Parameter(torch.tensor(1.0), requires_grad=True)
-        self.beta = nn.Parameter(torch.tensor(1.0), requires_grad=True)
+        self.alpha = nn.Parameter(torch.tensor(1.0))
+        self.beta = nn.Parameter(torch.tensor(1.0))
     
-    def forward(self, distances, gene_expressions, current_genes):
+    def forward(self, distances_list, gene_expressions_list, current_genes_list):
         bag_outputs = []
-        for distance, gene_expression in zip(distances, gene_expressions):
-            distance = self.distance(distance)
-            gene_expression = self.gene_expression(gene_expression)
-            immunogenicity, filtered_genes = self.immunogenicity(current_genes)
-            alpha = self.alpha
-            beta = self.beta
         
+        # Since each bag may have different genes, we process them individually
+        for distances, gene_expression, current_genes in zip(distances_list, gene_expressions_list, current_genes_list):
+            # Process distances and gene expressions through their respective networks
+            distances = self.distance(distances)  # Shape: [num_instances, 1]
+            gene_expression = self.gene_expression(gene_expression)  # Shape: [num_instances, num_genes]
+
+            # Get immunogenicity vector and filtered genes for the current bag
+            immunogenicity_vector, filtered_genes = self.immunogenicity(current_genes)
+            
             if len(filtered_genes) == 0:
-                continue  # Skip if no overlapping genes
-        
-        # Print debug information
-            #print(f"gene_expression shape: {gene_expression.shape}")
-            #print(f"current_genes length: {len(current_genes)}")
-            #print(f"filtered_genes length: {len(filtered_genes)}")
-        
-        
+                continue  # Skip this bag if no overlapping genes
+            
+            # Map gene names to indices
             gene_to_index = {gene: idx for idx, gene in enumerate(current_genes)}
-        
             gene_indices = [gene_to_index[gene] for gene in filtered_genes if gene in gene_to_index]
-            gene_expression = gene_expression[:, gene_indices]
-        
-            #print(f"Filtered gene_expression shape: {gene_expression.shape}")
-            #print(f"Immunogenicity shape: {immunogenicity.shape}")
-        
-            z = gene_expression @ immunogenicity
-            #print(f"z shape: {z.shape}")
-            z = z.unsqueeze(1)
-            #print(f"z shape: {z.shape}")
-            #print(f"distance shape: {distance}")
-            bag_output = distance * z
-            bag_output = torch.sum(bag_output, dim=0)
-            bag_output = torch.exp(alpha) * bag_output + beta
-            bag_output = torch.sigmoid(bag_output)
+            
+            # Select the relevant gene expressions
+            gene_expression = gene_expression[:, gene_indices]  # Shape: [num_instances, num_filtered_genes]
+            
+            # Compute z as the dot product between gene expression and immunogenicity
+            z = gene_expression @ immunogenicity_vector  # Shape: [num_instances]
+            z = z.unsqueeze(1)  # Shape: [num_instances, 1]
+            
+            # Compute the bag output
+            bag_output = distances * z  # Element-wise multiplication
+            bag_output = torch.sum(bag_output, dim=0)  # Sum over instances
+            bag_output = torch.exp(self.alpha) * bag_output + self.beta
             #print(bag_output)
+            #bag_output = torch.sigmoid(bag_output)  # Final output for the bag
+            
             bag_outputs.append(bag_output)
-            #df = pd.DataFrame(bag_outputs)
-            #df.to_csv(soutput.csv')
-    
         
-        return torch.stack(bag_outputs).squeeze(dim=1)
+        if len(bag_outputs) == 0:
+            return None  # Handle this case appropriately in your training loop
+        
+        # Stack outputs for all bags in the batch
+        return torch.stack(bag_outputs).squeeze(dim=1)  # Shape: [batch_size]
     
 
 class EarlyStopping:
