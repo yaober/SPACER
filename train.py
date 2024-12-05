@@ -16,16 +16,16 @@ def load_all_genes(reference_gene_file):
     all_genes = pd.read_csv(reference_gene_file)
     return all_genes['Gene'].values.tolist()
 
-def save_metrics(epoch, train_loss, val_loss, val_auroc, output_dir):
+def save_metrics(epoch, train_loss, val_loss, val_auroc, a, b, alpha, beta, output_dir):
     file_path = os.path.join(output_dir, 'training_metrics.csv')
     if not os.path.exists(file_path):
         # Create the CSV file with headers
         with open(file_path, 'w') as f:
-            f.write('Epoch,Train Loss,Val Loss,Val AUROC\n')
+            f.write('Epoch,Train Loss,Val Loss,Val AUROC,a,b,alpha,beta\n')
     
     # Append metrics for the current epoch
     with open(file_path, 'a') as f:
-        f.write(f'{epoch},{train_loss},{val_loss},{val_auroc}\n')
+        f.write(f'{epoch},{train_loss},{val_loss},{val_auroc},{a},{b},{alpha},{beta}\n')
 
 def save_ig_scores(epoch, all_genes, ig_scores_before_training, ig_scores_after_training, output_dir):
     # Create a DataFrame with IG scores before and after the current epoch
@@ -36,9 +36,11 @@ def save_ig_scores(epoch, all_genes, ig_scores_before_training, ig_scores_after_
     }
     df = pd.DataFrame(ig_score_data)
     
+    # Calculate the difference and add it as a new column
     df['Difference'] = df['IG Score After Training'] - df['IG Score Before Training']
     df = df.sort_values(by='Difference', ascending=False)
 
+    # Save to a CSV file for each epoch
     output_path = os.path.join(output_dir, f'ig_score_changes_epoch_{epoch+1}.csv')
     df.to_csv(output_path, index=False)
 
@@ -57,8 +59,9 @@ def train_model(args):
     # Create the output directory if it does not exist
     os.makedirs(args.output_dir, exist_ok=True)
 
-    # Initialize the model, optimizer, and early stopping
+    # Initialize the model, criterion, optimizer, and early stopping
     model = MIL(all_genes).to(device)  # Adjust 'k' as needed
+    criterion = nn.BCELoss().to(device)
     optimizer = optim.SGD(model.parameters(), lr=args.learning_rate)
     early_stopping = EarlyStopping(patience=args.patience, delta=args.delta)
     
@@ -68,7 +71,7 @@ def train_model(args):
         immune_cell=args.immune_cell,
         max_instances=args.max_instances,
         n_genes=args.n_genes,
-        k=2  # Ensure 'k' matches the number of negative bags per batch
+        k=4  # Ensure 'k' matches the number of bags per batch
     )
     train_size = int(0.7 * len(dataset))
     val_size = len(dataset) - train_size
@@ -97,13 +100,16 @@ def train_model(args):
                 tepoch.set_description(f"Epoch {epoch+1}/{args.num_epochs}")
                 optimizer.zero_grad()
 
+                # Unpack the batch data
                 distances_list, gene_expressions_list, labels_list, core_idxs_list, gene_names_list, cell_ids_list = batch_data
                 
+                # Move data to device and prepare labels
                 distances_list = [distances.to(device) for distances in distances_list]
                 gene_expressions_list = [gene_exp.to(device) for gene_exp in gene_expressions_list]
                 labels = torch.stack(labels_list).float().to(device)
-                current_genes_list = gene_names_list  
-                
+                current_genes_list = gene_names_list  # List of gene names for each bag
+
+                # Forward pass
                 outputs = model(distances_list, gene_expressions_list, current_genes_list)
                 
                 if outputs is None:
@@ -113,28 +119,15 @@ def train_model(args):
                     # Handle mismatch in batch sizes if necessary
                     continue
                 
-                # Compute custom loss
-                # Identify positive and negative outputs
-                positive_idxs = (labels == 1).nonzero(as_tuple=True)[0]
-                negative_idxs = (labels == 0).nonzero(as_tuple=True)[0]
-                
-                if positive_idxs.numel() == 0 or negative_idxs.numel() == 0:
-                    continue  # Skip batch if no positive or negative bags
-                
-                positive_output = outputs[positive_idxs]
-                negative_outputs = outputs[negative_idxs]
-                
-                # Compute mean of negative outputs and loss
-                mean_negative_output = negative_outputs.mean()
-                positive_output = positive_output.mean() 
-                
-                loss = torch.relu(mean_negative_output - positive_output+0.1)
+                # Compute BCE loss
+                loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
         
                 running_loss += loss.item()
                 tepoch.set_postfix(loss=loss.item())
                 
+                # Accumulate outputs and labels for AUROC calculation
                 all_outputs.extend(outputs.detach().cpu().numpy())
                 all_labels.extend(labels.cpu().numpy())
 
@@ -156,10 +149,10 @@ def train_model(args):
         with torch.no_grad():
             with tqdm(val_loader, unit="batch") as vtepoch:
                 for val_batch_data in vtepoch:
-                 
+                    # Unpack validation batch data
                     val_distances_list, val_gene_expressions_list, val_labels_list, val_core_idxs_list, val_gene_names_list, val_cell_ids_list = val_batch_data
                     
-                    
+                    # Move data to device and prepare labels
                     val_distances_list = [distances.to(device) for distances in val_distances_list]
                     val_gene_expressions_list = [gene_exp.to(device) for gene_exp in val_gene_expressions_list]
                     val_labels = torch.stack(val_labels_list).float().to(device)
@@ -175,22 +168,8 @@ def train_model(args):
                         # Handle mismatch in batch sizes if necessary
                         continue
                     
-                    # Compute custom loss
-                    # Identify positive and negative outputs
-                    positive_idxs = (val_labels == 1).nonzero(as_tuple=True)[0]
-                    negative_idxs = (val_labels == 0).nonzero(as_tuple=True)[0]
-                    
-                    if positive_idxs.numel() == 0 or negative_idxs.numel() == 0:
-                        continue 
-                    
-                    positive_output = val_outputs[positive_idxs]
-                    negative_outputs = val_outputs[negative_idxs]
-                    
-                    # Compute mean of negative outputs and loss
-                    mean_negative_output = negative_outputs.mean()
-                    positive_output = positive_output.mean()
-                    
-                    loss = torch.relu(mean_negative_output - positive_output)
+                    # Compute BCE loss
+                    loss = criterion(val_outputs, val_labels)
                     val_loss += loss.item()
                     vtepoch.set_postfix(val_loss=loss.item())
                     
@@ -213,9 +192,15 @@ def train_model(args):
             best_val_loss = val_loss
             torch.save(model.state_dict(), best_model_path)
             print(f"Best model saved with validation loss {val_loss:.4f}")
-
+            
+        torch.save(model.state_dict(), os.path.join(args.output_dir, f'model_epoch_{epoch+1}.pth'))
+        
+        a = model.distance.a.clone().detach().cpu().numpy()
+        b = model.gene_expression.b.clone().detach().cpu()
+        alpha = model.alpha.clone().detach().cpu()
+        beta = model.beta.clone().detach().cpu()
         # Save metrics
-        save_metrics(epoch+1, train_loss, val_loss, val_epoch_auc, args.output_dir)
+        save_metrics(epoch+1, train_loss, val_loss, val_epoch_auc,a,b,alpha,beta, args.output_dir)
 
         # Save IG scores after each epoch
         ig_scores_after_training = model.immunogenicity.ig.clone().detach().cpu()

@@ -8,7 +8,7 @@ from .sparsemax import Sparsemax
 class Distance(nn.Module):
     def __init__(self):
         super(Distance, self).__init__()
-        self.a = nn.Parameter(torch.tensor(1.0),requires_grad=True)
+        self.a = nn.Parameter(torch.tensor(-4.0),requires_grad=True)
         #self.sparsemax = Sparsemax(dim=0)
         self.softmax = nn.Softmax(dim=0)
     
@@ -85,7 +85,7 @@ class MIL(nn.Module):
             bag_output = torch.sum(bag_output, dim=0)  # Sum over instances
             bag_output = torch.exp(self.alpha) * bag_output + self.beta
             #print(bag_output)
-            #bag_output = torch.sigmoid(bag_output)  # Final output for the bag
+            bag_output = torch.sigmoid(bag_output)  # Final output for the bag
             
             bag_outputs.append(bag_output)
         
