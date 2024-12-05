@@ -21,7 +21,7 @@ def save_metrics(epoch, train_loss, val_loss, val_auroc,a,b,alpha,beta, output_d
     if not os.path.exists(file_path):
         # Create the CSV file with headers
         with open(file_path, 'w') as f:
-            f.write('Epoch,Train Loss,Val Loss,Val AUROC\n')
+            f.write('Epoch,Train Loss,Val Loss,Val AUROC,a,b,alpha,beta\n')
     
     # Append metrics for the current epoch
     with open(file_path, 'a') as f:
