@@ -58,7 +58,7 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
             if set(unique_values).issubset({0, 1}):
                 print(f"tumor_cells.obs[{immune_cell}] is already binary. Skipping binarization.")
             else:
-                percentile_value = np.percentile(tumor_cells.obs[immune_cell], 50)
+                percentile_value = np.percentile(tumor_cells.obs[immune_cell], 75)
                 print(f"Percentile value: {percentile_value}")
                 adata.obs[immune_cell] = np.where(adata.obs[immune_cell] > percentile_value, 1, 0)
                 print(f"adata.obs[{immune_cell}] after binarization: {adata.obs[immune_cell].head()}")

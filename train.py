@@ -16,7 +16,7 @@ def load_all_genes(reference_gene_file):
     all_genes = pd.read_csv(reference_gene_file)
     return all_genes['Gene'].values.tolist()
 
-def save_metrics(epoch, train_loss, val_loss, val_auroc, output_dir):
+def save_metrics(epoch, train_loss, val_loss, val_auroc,a,b,alpha,beta, output_dir):
     file_path = os.path.join(output_dir, 'training_metrics.csv')
     if not os.path.exists(file_path):
         # Create the CSV file with headers
@@ -25,7 +25,7 @@ def save_metrics(epoch, train_loss, val_loss, val_auroc, output_dir):
     
     # Append metrics for the current epoch
     with open(file_path, 'a') as f:
-        f.write(f'{epoch},{train_loss},{val_loss},{val_auroc}\n')
+        f.write(f'{epoch},{train_loss},{val_loss},{val_auroc},{a},{b},{alpha},{beta}\n')
 
 def save_ig_scores(epoch, all_genes, ig_scores_before_training, ig_scores_after_training, output_dir):
     # Create a DataFrame with IG scores before and after the current epoch
@@ -68,7 +68,7 @@ def train_model(args):
         immune_cell=args.immune_cell,
         max_instances=args.max_instances,
         n_genes=args.n_genes,
-        k=2  # Ensure 'k' matches the number of negative bags per batch
+        k=4  # Ensure 'k' matches the number of negative bags per batch
     )
     train_size = int(0.7 * len(dataset))
     val_size = len(dataset) - train_size
@@ -190,7 +190,7 @@ def train_model(args):
                     mean_negative_output = negative_outputs.mean()
                     positive_output = positive_output.mean()
                     
-                    loss = torch.relu(mean_negative_output - positive_output)
+                    loss = torch.relu(mean_negative_output - positive_output+0.1)
                     val_loss += loss.item()
                     vtepoch.set_postfix(val_loss=loss.item())
                     
@@ -213,9 +213,18 @@ def train_model(args):
             best_val_loss = val_loss
             torch.save(model.state_dict(), best_model_path)
             print(f"Best model saved with validation loss {val_loss:.4f}")
-
+        
+        torch.save(model.state_dict(), os.path.join(args.output_dir, f'model_epoch_{epoch+1}.pth'))
+        
+        a = model.distance.a.clone().detach().cpu().item()
+        b = model.gene_expression.b.clone().detach().cpu().item()
+        alpha =model.alpha.clone().detach().cpu().item()
+        beta = model.beta.clone().detach().cpu().item()
+        
         # Save metrics
-        save_metrics(epoch+1, train_loss, val_loss, val_epoch_auc, args.output_dir)
+        save_metrics(epoch+1, train_loss, val_loss, val_epoch_auc,
+                     a, b, alpha, beta,
+                     args.output_dir)
 
         # Save IG scores after each epoch
         ig_scores_after_training = model.immunogenicity.ig.clone().detach().cpu()
