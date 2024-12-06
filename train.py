@@ -59,7 +59,7 @@ def train_model(args):
 
     # Initialize the model, optimizer, and early stopping
     model = MIL(all_genes).to(device)  # Adjust 'k' as needed
-    optimizer = optim.SGD(model.parameters(), lr=args.learning_rate)
+    optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=0.01)
     early_stopping = EarlyStopping(patience=args.patience, delta=args.delta)
     
     # Load dataset and create DataLoader
