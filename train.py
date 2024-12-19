@@ -68,7 +68,7 @@ def train_model(args):
         immune_cell=args.immune_cell,
         max_instances=args.max_instances,
         n_genes=args.n_genes,
-        k=4  # Ensure 'k' matches the number of negative bags per batch
+        k=2  # Ensure 'k' matches the number of negative bags per batch
     )
     train_size = int(0.7 * len(dataset))
     val_size = len(dataset) - train_size
