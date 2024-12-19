@@ -1,0 +1,10 @@
+adata,radius,resolution
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/VisiumHD/processed/HumanLungCancerEndothelial.h5ad,50,high
+/project/DPDS/Wang_lab/s439765/spatial_tcr/negative_control/high_res/slide_tagEndothelial_negative_control.h5ad,150,high
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/VisiumHD/processed/Breast_Cancer_FreshEndothelial.h5ad,50,high
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/VisiumHD/processed/Lung_Cancer_Fixed_FrozenEndothelial.h5ad,50,high
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/VisiumHD/processed/Colon_Cancer_P2Endothelial.h5ad,50,high
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/VisiumHD/processed/Lung_Cancer_HD_Only_Experiment1Endothelial.h5ad,50,high
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/VisiumHD/processed/Colon_Cancer_P5Endothelial.h5ad,50,high
+/project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/VisiumHD/processed/Colon_Cancer_P1Endothelial.h5ad,50,high
+
