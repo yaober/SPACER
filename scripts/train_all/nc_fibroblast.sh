@@ -16,4 +16,4 @@
 source activate spatial_tcr
 export CUDA_VISIBLE_DEVICES=0
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
-python train.py --data  data/all_data/fibroblast.csv --reference_gene data/human_filtered.csv --output_dir finalize_model_all_bce_k=4/fibroblast --immune_cell fibroblast --learning_rate 0.05 --num_epochs 100 --patience 5 --delta 0.0001  --n_genes 10000    
+python train.py --data  data/all_data/fibroblast.csv --reference_gene data/human_filtered.csv --output_dir finalize_model_all_top500/fibroblast --immune_cell fibroblast --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 500    

@@ -17,4 +17,4 @@
 source activate spatial_tcr
 
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
-python train.py --data  data/all_data/neutrophil.csv --reference_gene data/human_filtered.csv --output_dir finalize_model_all_bce_k=4/neutrophil --immune_cell neutrophil --learning_rate 0.05 --num_epochs 100 --patience 5 --delta 0.0001  --n_genes 10000    
+python train.py --data  data/all_data/neutrophil.csv --reference_gene data/human_filtered.csv --output_dir finalize_model_all_top500/neutrophil --immune_cell neutrophil --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 500    
