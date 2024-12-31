@@ -17,4 +17,4 @@
 source activate spatial_tcr
 
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
-python train.py --data data/visiumhd/endothelial.csv --reference_gene data/human_filtered.csv --output_dir finalize_model_visiumhd_top500/endothelial --immune_cell endothelial --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 500    
+python train.py --data data/visiumhd/endothelial.csv --reference_gene data/human_filtered.csv --output_dir finalize_model_visiumhd_top500_relative/endothelial --immune_cell endothelial --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 500    

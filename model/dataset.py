@@ -16,51 +16,60 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
     adata = adata.copy()
     adata.var_names_make_unique()  # Ensure unique gene names
 
-    # Filter the tumor cells
+    # Filter the tumor and non-tumor cells
     print(adata.obs['cell_type'].unique())
     tumor_cells = adata[adata.obs['cell_type'].astype(int) == 1].copy()
+    non_tumor_cells = adata[adata.obs['cell_type'].astype(int) != 1].copy()
 
     # Debug: Check tumor cells
     print(f"Tumor cells shape after filtering: {tumor_cells.shape}")
+    print(f"Non-tumor cells shape after filtering: {non_tumor_cells.shape}")
     if tumor_cells.shape[0] == 0:
         print("Warning: No tumor cells found after filtering.")
+        return None  # Stop processing if no tumor cells
 
-    # Calculate mean expression
+    # Calculate mean expression for tumor and non-tumor cells
     if issparse(tumor_cells.X):
-        # Convert to dense and compute mean expression
-        mean_expression = np.asarray(tumor_cells.X.mean(axis=0)).ravel()
+        mean_expression_tumor = np.asarray(tumor_cells.X.mean(axis=0)).ravel()
     else:
-        mean_expression = tumor_cells.X.mean(axis=0)
+        mean_expression_tumor = tumor_cells.X.mean(axis=0)
+
+    if issparse(non_tumor_cells.X):
+        mean_expression_non_tumor = np.asarray(non_tumor_cells.X.mean(axis=0)).ravel()
+    else:
+        mean_expression_non_tumor = non_tumor_cells.X.mean(axis=0)
+
+    # Avoid division by zero by adding a small epsilon
+    mean_expression_non_tumor += 1e-10
+
+    # Calculate relative values
+    relative_values = mean_expression_tumor - mean_expression_non_tumor
 
     # Get gene names
     gene_names = tumor_cells.var_names
 
-    # Select top n genes
-    print(f"Selecting top {n_genes} genes based on mean expression")
+    # Select top n genes based on relative values
+    print(f"Selecting top {n_genes} genes based on relative values")
     if n_genes > len(gene_names):
         n_genes = int(len(gene_names) * 0.2)
-    top_n_gene_indices = mean_expression.argsort()[-n_genes:][::-1]
+    top_n_gene_indices = relative_values.argsort()[-n_genes:][::-1]
     top_n_gene_names = gene_names[top_n_gene_indices]
-    
+
+    # Include additional tumor-related genes and filter out unwanted ones
     tumor_genes = [
-        # possible tumor antigens or genes that promote tumor antigen presentation
-        'TAP2','IFI6','TOP2A','PBK','TPX2','PRAME','MUC1','MUC12','CEACAM1','EPCAM','PMEL','MLANA','LAGE3','HORMAD1',
-        'CTAG1B','KRT8','KRT18','KRT19','ERBB2','MAGEA3','MAGEA4','MAGEA10','AFP','CEACAM5','SOX2','SLC45A2','WT1',
-        # genes that are usually highly up-regulated in tumor cells but are unlikely to be tumor antigens
-        'MYC','CCND1','CDK4','CDK6','AURKA','BCL2','BIRC5','MCL1','CD274','FGL1','MMP2','MMP9','VEGFA',
-        'TWIST1','VEGF','ANGPT2','HIF1A','HK2','LDHA','SLC2A1','PARP1','RAD51','VIM','SNAI1','ALDH1A1',
-        'NANOG','EGFR','KIT','CXCL8','STAT3','KRAS','TP53'
-        # B cell antigen genes from Jose and Shirley
-        'OR2H1','SDCBP','OR5V1','GPR85','OR2H1','SDCBP','TSPAN31','TMEM191C','IGSF8'
+        # Possible tumor antigens or genes that promote tumor antigen presentation
+        'TAP2', 'IFI6', 'TOP2A', 'PBK', 'TPX2', 'PRAME', 'MUC1', 'MUC12', 'CEACAM1', 'EPCAM', 'PMEL', 'MLANA',
+        'LAGE3', 'HORMAD1', 'CTAG1B', 'KRT8', 'KRT18', 'KRT19', 'ERBB2', 'MAGEA3', 'MAGEA4', 'MAGEA10', 'AFP',
+        'CEACAM5', 'SOX2', 'SLC45A2', 'WT1'
     ]
-    hla_genes = list(adata.var_names[adata.var_names.str.startswith("HLA")])    
-    select_genes=tumor_genes+hla_genes+list(top_n_gene_names)
+    hla_genes = list(adata.var_names[adata.var_names.str.startswith("HLA")])
+    select_genes = tumor_genes + hla_genes + list(top_n_gene_names)
     existing_genes = [gene for gene in select_genes if gene in adata.var_names]
 
-    genes_to_exclude=["CD68","STAT1","MMP13","EPDR1","CLCA1","FBLN1","C9orf16","ADGRF1","LINGO2"]
+    genes_to_exclude = ["CD68", "STAT1", "MMP13", "EPDR1", "CLCA1", "FBLN1", "C9orf16", "ADGRF1", "LINGO2"]
     existing_genes = [gene for gene in existing_genes if gene not in genes_to_exclude]
-    
-    # Subset adata using gene names to keep indices consistent
+
+    # Subset adata using selected genes
     adata = adata[:, existing_genes].copy()
 
     adata.obs[immune_cell] = adata.obs[immune_cell].astype(float)
@@ -81,6 +90,7 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
                 print(f"adata.obs[{immune_cell}] after binarization: {adata.obs[immune_cell].head()}")
 
     return adata
+
 
 
 class BagsDataset(Dataset):
