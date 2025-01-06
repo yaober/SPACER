@@ -1,5 +1,4 @@
 adata,radius,resolution
-/project/DPDS/Wang_lab/s439765/spatial_tcr/negative_control/high_res/HumanLungCancerFibroblast_negative_control.h5ad,50,high
 /project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/VisiumHD/processed/Colon_Cancer_P2Fibroblast.h5ad,50,high
 /project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/VisiumHD/processed/Colon_Cancer_P5Fibroblast.h5ad,50,high
 /project/DPDS/Wang_lab/s439765/spatial_tcr/spatial_transcriptomics/VisiumHD/processed/Breast_Cancer_FreshFibroblast.h5ad,50,high
