@@ -32,3 +32,5 @@ fine_tuned_model*
 test_*
 finetune_model*
 validation/pmhc
+*.pdf
+data/hyun/*
