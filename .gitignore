@@ -34,3 +34,4 @@ finetune_model*
 validation/pmhc
 *.pdf
 data/hyun/*
+data/all_mouse_genes.csv
