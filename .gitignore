@@ -35,3 +35,7 @@ validation/pmhc
 *.pdf
 data/hyun/*
 data/all_mouse_genes.csv
+validation_*
+mouse_heart
+negative_heart
+inhibit_model

@@ -63,6 +63,7 @@ def train_model(args):
     model = MIL(all_genes).to(device)  # Adjust 'k' as needed
     criterion = nn.BCELoss().to(device)
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=0.01)
+    #optimizer = optim.SGD(model.parameters(), lr=args.learning_rate, momentum=0.9)
     early_stopping = EarlyStopping(patience=args.patience, delta=args.delta)
     
     # Load dataset and create DataLoader
@@ -120,6 +121,8 @@ def train_model(args):
                     continue
                 
                 # Compute BCE loss
+                if args.selection == 'negtive':
+                    labels = 1 - labels
                 loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
@@ -169,6 +172,8 @@ def train_model(args):
                         continue
                     
                     # Compute BCE loss
+                    if args.selection == 'negtive':
+                        val_labels = 1 - val_labels
                     loss = criterion(val_outputs, val_labels)
                     val_loss += loss.item()
                     vtepoch.set_postfix(val_loss=loss.item())
@@ -222,6 +227,7 @@ def main():
     parser.add_argument('--delta', type=float, default=0.001, help='Minimum change to qualify as an improvement.')
     parser.add_argument('--max_instances', type=int, default=None, help='Maximum instances for the dataset.')
     parser.add_argument('--n_genes', type=int, default=10000, help='Number of genes to consider.')
+    parser.add_argument('--selection', type=str, default='positive', help='Selection of positive or negative samples.')
     
     args = parser.parse_args()
     train_model(args)

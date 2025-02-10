@@ -15,6 +15,7 @@
 #SBATCH --mail-user jia.yao@utsouthwestern.edu
 
 source activate spatial_tcr
+conda activate spatial_tcr
 
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
-python train.py --data  data/all_data/macrophage.csv --reference_gene data/human_filtered.csv --output_dir finalize_model_all_top500/macrophage --immune_cell macrophage --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 500    
+python train.py --data  data/all_data/macrophage.csv --reference_gene data/human_filtered.csv --output_dir inhibit_model_new/macrophage --immune_cell macrophage --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 500    

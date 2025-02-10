@@ -1,0 +1,27 @@
+#!/bin/bash
+#SBATCH --job-name tcell
+
+# Name of the SLURM partition that this job should run on.
+#SBATCH -p 512GB   # partition (queue)
+# Number of nodes required to run this job
+#SBATCH -N 1
+
+#SBATCH -t 100-23:0:00
+
+#SBATCH -o job_%j_tcell.out
+#SBATCH -e job_%j_tcell.err
+
+#SBATCH --mail-type ALL
+#SBATCH --mail-user jia.yao@utsouthwestern.edu
+
+source activate spatial_tcr
+conda activate spatial_tcr
+export CUDA_VISIBLE_DEVICES=0
+cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
+python train.py --data  data/hyun/t_cell.csv --reference_gene data/all_mouse_genes.csv --output_dir test/cd8_top250 --immune_cell tcell --learning_rate 0.05 --num_epochs 5 --patience 5 --delta 0.0001  --n_genes 250 
+python train.py --data  data/hyun/t_cell.csv --reference_gene data/all_mouse_genes.csv --output_dir test/cd8_top500 --immune_cell tcell --learning_rate 0.05 --num_epochs 5 --patience 5 --delta 0.0001  --n_genes 500 
+python train.py --data  data/hyun/t_cell.csv --reference_gene data/all_mouse_genes.csv --output_dir test/cd8_top1000 --immune_cell tcell --learning_rate 0.05 --num_epochs 5 --patience 5 --delta 0.0001  --n_genes 1000    
+python train.py --data  data/hyun/t_cell.csv --reference_gene data/all_mouse_genes.csv --output_dir test/cd8_top2000 --immune_cell tcell --learning_rate 0.05 --num_epochs 5 --patience 5 --delta 0.0001  --n_genes 2000    
+python train.py --data  data/hyun/t_cell.csv --reference_gene data/all_mouse_genes.csv --output_dir test/cd8_top5000 --immune_cell tcell --learning_rate 0.05 --num_epochs 5 --patience 5 --delta 0.0001  --n_genes 5000    
+python train.py --data  data/hyun/t_cell.csv --reference_gene data/all_mouse_genes.csv --output_dir test/cd8_top10000 --immune_cell tcell --learning_rate 0.05 --num_epochs 5 --patience 5 --delta 0.0001  --n_genes 10000    
+
