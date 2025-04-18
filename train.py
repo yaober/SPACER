@@ -121,7 +121,7 @@ def train_model(args):
                     continue
                 
                 # Compute BCE loss
-                if args.selection == 'negtive':
+                if args.selection == 'negative':
                     labels = 1 - labels
                 loss = criterion(outputs, labels)
                 loss.backward()
@@ -172,7 +172,7 @@ def train_model(args):
                         continue
                     
                     # Compute BCE loss
-                    if args.selection == 'negtive':
+                    if args.selection == 'negative':
                         val_labels = 1 - val_labels
                     loss = criterion(val_outputs, val_labels)
                     val_loss += loss.item()

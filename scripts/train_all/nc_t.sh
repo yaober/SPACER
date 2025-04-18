@@ -18,4 +18,4 @@ source activate spatial_tcr
 conda activate spatial_tcr
 export CUDA_VISIBLE_DEVICES=0
 cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
-python train.py --data  data/all_data/t_cell.csv --reference_gene data/human_filtered.csv --output_dir inhibit_model_new/tcell --immune_cell tcell --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 500    
+python train.py --data  data/all_data/t_cell_2r.csv --reference_gene data/human_filtered.csv --output_dir inhibit_model/tcell_2r_clean --immune_cell tcell --learning_rate 0.01 --num_epochs 100 --patience 5 --delta 0.0001  --n_genes 500 --selection negative 
