@@ -1,111 +1,89 @@
-## ------------------------------------------------------------------
-##  SysteMHC epitope‑density trend, plotted in the same style as Fig 1
-## ------------------------------------------------------------------
-
+  # Load Required Libraries -------------------------------------------------------
 library(ggplot2)
-library(viridis)        # continuous colour palette
-library(clinfun)        # Jonckheere‑Terpstra trend test
-
-# 1. Load and clean input ------------------------------------------------------
-ig <- read.csv("../archive_data/ig_score_count_systemhc.csv",
-               stringsAsFactors = FALSE)
-
-# Remove control / irrelevant rows and rows with missing epitope counts
-ig <- ig[ig$Difference != 1 & !is.na(ig$count), ]
-
-# Compute log‑normalised epitope density
-ig$y <- log((ig$count + 1) / ig$Length)
-
-# 2. Generate a sequential group ID every 150 rows -----------------------------
-#    ‘ceiling()’ avoids a group 0 (which could appear with ‘round()’)
-ig$GroupID <- ceiling(seq_len(nrow(ig)) / 150)
-
-# 3. Get the median y within each group (mirrors “median‑by‑cutoff” idea) ------
-summary_df <- aggregate(y ~ GroupID, data = ig, median)
-# (Alternatively: dplyr::summarise)
-
-# 4. Plot: thin line + gradient points ----------------------------------------
-ggplot(summary_df, aes(x = GroupID, y = y, colour = GroupID)) +
-  geom_line(size = 0.8) +          # thin line connecting medians
-  geom_point(size = 2) +           # gradient‑coloured points
-  scale_colour_viridis_c(option = "D") +
-  labs(
-    title = "IEDB Epitope Density Trend (Median per 150 rows)",
-    x     = "Sequential Group Index",
-    y     = "Log(Normalized HLA Binder Counts)",
-    colour = "Group ID"
-  ) +
-  theme_minimal(base_size = 14) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.text  = element_text(colour = "black")
-  )
-
-# 5. Jonckheere–Terpstra test for a monotonic decrease -------------------------
-jt_result <- jonckheere.test(ig$y, ig$GroupID, alternative = "decreasing")
-print(jt_result)
-
-
-
-
-library(ggplot2)
-library(scales)      # for muted() if you want extra‑soft colors
+library(viridis)
+library(clinfun)   # for Jonckheere-Terpstra test
+library(scales)
 library(patchwork)
 
-## ───────── 1. Color palette ─────────
-main_col   <- "#4A6FA5"                                 # deep gray‑blue for lines/points
-accent_pal <- c("#E0E0E0", "#B0B8C4", "#708090")        # gray → blue‑gray gradient
-
-## ───────── 2. Common theme (tight panel, large fonts) ─────────
-theme_journal <- theme_classic(base_size = 19) +        # slightly larger base font
+theme_journal <- theme_classic(base_size = 19) +
   theme(
-    plot.title      = element_text(face = "bold", hjust = 0.5, size = 22),
-    axis.title      = element_text(face = "bold", size = 19),
-    axis.text       = element_text(color = "black", size = 17),
-    axis.line       = element_line(color = "grey50", linewidth = 0.6),
-    axis.ticks      = element_line(color = "grey50"),
-    legend.title    = element_text(face = "bold", size = 17),
-    legend.text     = element_text(size = 15),
-    panel.spacing   = unit(0.3, "lines"),               # minimal gap between panels
-    plot.margin     = margin(3, 3, 3, 3),               # 3‑pt white space around the plot
-    panel.grid.major = element_blank(),                 # remove major grid lines
-    panel.grid.minor = element_blank()
+    plot.title    = element_text(face = "bold", hjust = 0.5, size = 22),
+    axis.title    = element_text(face = "plain", size = 19),
+    axis.text     = element_text(color = "black", size = 17),
+    axis.line     = element_line(color = "grey50", linewidth = 0.6),
+    axis.ticks    = element_line(color = "grey50"),
+    legend.title  = element_text(face = "bold", size = 14),
+    legend.text   = element_text(size = 10),
+    legend.key.size = unit(0.1, "cm"),
+    legend.position = c(0.25, 0.30),
+    legend.justification = c("left", "top"),
+    panel.spacing = unit(0.3, "lines"),
+    plot.margin   = margin(3, 3, 3, 3)
   )
 
+# 1. Load and Preprocess IEDB Data --------------------------------------------
+ig1 <- read.csv("../archive_data/ig_score_count_iedb_classi_human_epoch9.csv", stringsAsFactors = FALSE)
+ig1 <- ig1[ig1$Difference != 1 & !is.na(ig1$count), ]
+ig1$y <- log((ig1$count + 1) / ig1$Length)
+ig1$GroupID <- ceiling(seq_len(nrow(ig1)) / 150)
 
-## ───────── 4. Panel B: SysteMHC density trend ─────────
-summary_df$GroupID <- factor(
-  summary_df$GroupID,
-  levels = sort(unique(summary_df$GroupID))
-)
+summary_iedb <- aggregate(y ~ GroupID, data = ig1, FUN = function(x) c(med = median(x), se = sd(x)/sqrt(length(x))))
+summary_iedb <- do.call(data.frame, summary_iedb)
+colnames(summary_iedb) <- c("GroupID", "y", "se")
 
-n_groups <- length(levels(summary_df$GroupID))
+# 2. Load and Preprocess SysteMHC Data -----------------------------------------
+ig2 <- read.csv("../archive_data/ig_score_count_systemhc.csv", stringsAsFactors = FALSE)
+ig2 <- ig2[ig2$Difference != 1 & !is.na(ig2$count), ]
+ig2$y <- log((ig2$count + 1) / ig2$Length)
+ig2$GroupID <- ceiling(seq_len(nrow(ig2)) / 150)
 
-# Expand the 3‑color seed to n_groups colors
-fill_pal <- colorRampPalette(accent_pal)(n_groups)
+summary_sysmhc <- aggregate(y ~ GroupID, data = ig2, FUN = function(x) c(med = median(x), se = sd(x)/sqrt(length(x))))
+summary_sysmhc <- do.call(data.frame, summary_sysmhc)
+colnames(summary_sysmhc) <- c("GroupID", "y", "se")
 
-pB <- ggplot(summary_df, aes(GroupID, y, group = 1)) +
-  geom_line(color = main_col, linewidth = 1.4) +
-  geom_point(aes(fill = GroupID),
-             shape = 21, size = 3, stroke = 0.3, color = "grey30") +
-  scale_fill_manual(values = fill_pal) +          # now exactly n colors
-  labs(
-    x = "Group",
-    y = expression(log[10]~"(Normalized HLA Binder Counts)"),
-    title = "SysteMHC Epitope Density Trend "
+# Normalize SysteMHC to IEDB scale
+scale_factor <- max(summary_iedb$y) / max(summary_sysmhc$y)
+summary_sysmhc$y <- summary_sysmhc$y * scale_factor
+summary_sysmhc$se <- summary_sysmhc$se * scale_factor
+
+# 3. Jonckheere-Terpstra Trend Test --------------------------------------------
+pval_iedb <- jonckheere.test(ig1$y, ig1$GroupID, alternative = "decreasing")$p.value
+pval_sys  <- jonckheere.test(ig2$y, ig2$GroupID, alternative = "decreasing")$p.value
+
+# 4. Update Labels to Include p-values -----------------------------------------
+label_iedb <- sprintf("IEDB (p = %.1e)", pval_iedb)
+label_sys  <- sprintf("SysteMHC (p = %.1e)", pval_sys)
+summary_iedb$Source <- label_iedb
+summary_sysmhc$Source <- label_sys
+
+summary_combined <- rbind(summary_iedb, summary_sysmhc)
+
+# 5. Plotting -------------------------------------------------------------------
+p_dual_legend <- ggplot(summary_combined, aes(x = GroupID, y = y, color = Source, fill = Source)) +
+  geom_line(aes(group = Source), linewidth = 1.4) +
+  geom_point(shape = 21, size = 3, stroke = 0.3, color = "grey30") +
+  geom_errorbar(aes(ymin = y - se, ymax = y + se), width = 0.15, linewidth = 1.2, alpha = 0.75) +
+  scale_x_continuous(breaks = 1:10) +
+  scale_y_continuous(
+    name = "IEDB",
+    sec.axis = sec_axis(~ . / scale_factor, name = "SysteMHC")
   ) +
-  theme_journal +
+  scale_color_manual(values = setNames(c("#f4ae6f", "#2878b4"), c(label_iedb, label_sys))) +
+  scale_fill_manual(values  = setNames(c("#f4ae6f", "#2878b4"), c(label_iedb, label_sys))) +
+  labs(
+    x = "Group rank by SPACER score",
+    color = NULL,
+    fill  = NULL
+  ) +
+  theme_journal +  # your original background
   theme(
-    axis.text.x     = element_text(angle = 45, hjust = 1),
-    legend.position = "none"
+    axis.text.x     = element_text(angle = 0, hjust = 0.5),
+    legend.position = c(0.05, 0.20)
   )
 
-print(pB)
+# 6. Save and Display ----------------------------------------------------------
+ggsave("iedb_systemhc_joint.pdf",
+       plot = p_dual_legend,
+       width = 7.8, height = 6.3, units = "in", dpi = 300, useDingbats = FALSE)
 
-ggsave(
-  "iedb.pdf",
-  pB,
-  width  = 6, height = 6, units = "in",
-  dpi    = 300,
-  useDingbats = FALSE                                   # avoid font‑embedding issues
-)
+print(p_dual_legend)

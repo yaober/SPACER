@@ -135,7 +135,7 @@ ggplot(plot_df, aes(x = Cutoff, y = MedianBinderScore)) +
   labs(
     x = "Top % of Genes (Ranked by T Cell IG Score)",
     y = "Log(Normalized HLA Binder Counts)",
-    title = "Immune Gradient vs HLA Epitope Presentation",
+    title = "NetMHCHLA Epitope Presentation",
     color = "Gene Rank Percentile"
   ) +
   
@@ -174,9 +174,9 @@ pA <- ggplot(plot_df, aes(Cutoff, MedianBinderScore)) +
     name   = "Gene Rank\nPercentile"
   ) +
   labs(
-    x = "Top % of Genes (Ranked by IG Score)",
-    y = expression(log[10]~"(Normalized HLA Binder Counts)"),
-    title = "Immune Gradient vs HLA Epitope Presentation"
+    x = "Top % of Genes",
+    #y = expression(log[10]~"(Normalized HLA Binder Counts)"),
+    y = "Log(normalized HLA binder counts)",
   ) +
   theme_journal +
   theme(
@@ -188,7 +188,7 @@ print(pA)
 ggsave(
   "netmhc.pdf",
   pA,
-  width  = 8.5, height = 6, units = "in",
+  width  = 7, height = 6, units = "in",
   dpi    = 300,
   useDingbats = FALSE                                   # avoid font‑embedding issues
 )
