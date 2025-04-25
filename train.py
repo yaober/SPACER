@@ -27,21 +27,21 @@ def save_metrics(epoch, train_loss, val_loss, val_auroc, a, b, alpha, beta, outp
     with open(file_path, 'a') as f:
         f.write(f'{epoch},{train_loss},{val_loss},{val_auroc},{a},{b},{alpha},{beta}\n')
 
-def save_ig_scores(epoch, all_genes, ig_scores_before_training, ig_scores_after_training, output_dir):
-    # Create a DataFrame with IG scores before and after the current epoch
-    ig_score_data = {
+def save_spacer_scores(epoch, all_genes, spacer_scores_before_training, spacer_scores_after_training, output_dir):
+    # Create a DataFrame with SPACER Scores before and after the current epoch
+    spacer_score_data = {
         'Gene': all_genes,
-        'IG Score Before Training': ig_scores_before_training,
-        'IG Score After Training': ig_scores_after_training,
+        'SPACER Score Before Training': spacer_scores_before_training,
+        'SPACER Score After Training': spacer_scores_after_training,
     }
-    df = pd.DataFrame(ig_score_data)
+    df = pd.DataFrame(spacer_score_data)
     
     # Calculate the difference and add it as a new column
-    df['Difference'] = df['IG Score After Training'] - df['IG Score Before Training']
+    df['Difference'] = df['SPACER Score After Training'] - df['SPACER Score Before Training']
     df = df.sort_values(by='Difference', ascending=False)
 
     # Save to a CSV file for each epoch
-    output_path = os.path.join(output_dir, f'ig_score_changes_epoch_{epoch+1}.csv')
+    output_path = os.path.join(output_dir, f'spacer_score_changes_epoch_{epoch+1}.csv')
     df.to_csv(output_path, index=False)
 
 def train_model(args):
@@ -84,9 +84,9 @@ def train_model(args):
     best_val_loss = float('inf')
     best_model_path = os.path.join(args.output_dir, 'best_model.pth')
 
-    # Save IG scores before training
-    ig_scores_before_training = model.immunogenicity.ig.clone().detach().cpu()
-    ig_scores_before_training = [score.item() for score in ig_scores_before_training]
+    # Save SPACER Scores before training
+    spacer_scores_before_training = model.immunogenicity.ig.clone().detach().cpu()
+    spacer_scores_before_training = [score.item() for score in spacer_scores_before_training]
 
     for epoch in range(args.num_epochs):
         model.train()
@@ -207,10 +207,10 @@ def train_model(args):
         # Save metrics
         save_metrics(epoch+1, train_loss, val_loss, val_epoch_auc,a,b,alpha,beta, args.output_dir)
 
-        # Save IG scores after each epoch
-        ig_scores_after_training = model.immunogenicity.ig.clone().detach().cpu()
-        ig_scores_after_training = [score.item() for score in ig_scores_after_training]
-        save_ig_scores(epoch, all_genes, ig_scores_before_training, ig_scores_after_training, args.output_dir)
+        # Save SPACER Scores after each epoch
+        spacer_scores_after_training = model.immunogenicity.ig.clone().detach().cpu()
+        spacer_scores_after_training = [score.item() for score in spacer_scores_after_training]
+        save_spacer_scores(epoch, all_genes, spacer_scores_before_training, spacer_scores_after_training, args.output_dir)
     
     # Save the final model
     torch.save(model.state_dict(), os.path.join(args.output_dir, 'final_model.pth'))
