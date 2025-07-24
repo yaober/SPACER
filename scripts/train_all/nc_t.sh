@@ -17,4 +17,4 @@
 source activate spatial_tcr
 export CUDA_VISIBLE_DEVICES=0
 cd /project/shared/cli_wang/s439765/spatial_tcr/MIL_TCR/
-python train.py --data  data/all_data/t_cell.csv --reference_gene data/human_filtered.csv --output_dir test_500 --immune_cell tcell --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 500 --selection positive 
+python train.py --data  data/all_data/t_cell.csv --reference_gene data/human_filtered.csv --output_dir test_repath/tcell --immune_cell tcell --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 500 --selection positive 

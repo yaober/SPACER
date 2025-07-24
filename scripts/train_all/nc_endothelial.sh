@@ -17,5 +17,5 @@
 source activate spatial_tcr
 conda activate spatial_tcr
 
-cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
-python train.py --data  data/all_data/endothelial.csv --reference_gene data/human_filtered.csv --output_dir inhibit_model_new/endothelial --immune_cell endothelial --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 500    
+cd /project/shared/cli_wang/s439765/spatial_tcr/MIL_TCR
+python train.py --data  data/all_data/endothelial.csv --reference_gene data/human_filtered.csv --output_dir test_repath/endothelial --immune_cell endothelial --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 500    
