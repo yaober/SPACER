@@ -56,6 +56,7 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
         # B cell antigen genes from Jose and Shirley
         'OR2H1','SDCBP','OR5V1','GPR85','OR2H1','SDCBP','TSPAN31','TMEM191C','IGSF8'
     ]
+    
     hla_genes = list(adata.var_names[adata.var_names.str.startswith("HLA")])    
     select_genes=tumor_genes+hla_genes+list(top_n_gene_names)
     existing_genes = [gene for gene in select_genes if gene in adata.var_names]
