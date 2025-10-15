@@ -74,7 +74,7 @@ def train_model(args):
         n_genes=args.n_genes,
         k=2  # Ensure 'k' matches the number of bags per batch
     )
-    train_size = int(0.7 * len(dataset))
+    train_size = int(0.9 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
     

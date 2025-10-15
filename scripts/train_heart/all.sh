@@ -16,8 +16,8 @@
 
 source activate spatial_tcr
 export CUDA_VISIBLE_DEVICES=0
-cd /project/DPDS/Wang_lab/s439765/spatial_tcr/MIL_TCR
-python train.py --data  data/hyun/all/tcell.csv --reference_gene data/all_mouse_genes.csv --output_dir mouse_heart/all/tcell --immune_cell tcell --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 3000 
-python train.py --data  data/hyun/all/bcell.csv --reference_gene data/all_mouse_genes.csv --output_dir mouse_heart/all/bcell --immune_cell bcell --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 3000 
-python train.py --data  data/hyun/all/macrophage.csv --reference_gene data/all_mouse_genes.csv --output_dir mouse_heart/all/macrophage --immune_cell macrophage --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 3000    
+cd /project/shared/cli_wang/s439765/spatial_tcr/MIL_TCR
+python train.py --data  data/hyun/vonly/tcell.csv --reference_gene data/all_mouse_genes.csv --output_dir mouse_heart/pos/tcell --immune_cell tcell --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 3000 --max_instances 500
+python train.py --data  data/hyun/vonly/bcell.csv --reference_gene data/all_mouse_genes.csv --output_dir mouse_heart/pos/bcell --immune_cell bcell --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 3000 --max_instances 500
+python train.py --data  data/hyun/vonly/macrophage.csv --reference_gene data/all_mouse_genes.csv --output_dir mouse_heart/pos/macrophage --immune_cell macrophage --learning_rate 0.05 --num_epochs 10 --patience 5 --delta 0.0001  --n_genes 3000 --max_instances 500
 

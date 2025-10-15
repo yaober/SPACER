@@ -45,24 +45,17 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
     top_n_gene_indices = mean_expression.argsort()[-n_genes:][::-1]
     top_n_gene_names = gene_names[top_n_gene_indices]
 
-    """tumor_genes = [
+    tumor_genes = [
         # possible tumor antigens or genes that promote tumor antigen presentation
-        'TAP2','IFI6','TOP2A','PBK','TPX2','PRAME','MUC1','MUC12','CEACAM1','EPCAM','PMEL','MLANA','LAGE3','HORMAD1',
-        'CTAG1B','KRT8','KRT18','KRT19','ERBB2','MAGEA3','MAGEA4','MAGEA10','AFP','CEACAM5','SOX2','SLC45A2','WT1','HOXB9','GUCY2C',
-        # genes that are usually highly up-regulated in tumor cells but are unlikely to be tumor antigens
-        'MYC','CCND1','CDK4','CDK6','AURKA','BCL2','BIRC5','MCL1','CD274','FGL1','MMP2','MMP9','VEGFA',
-        'TWIST1','VEGF','ANGPT2','HIF1A','HK2','LDHA','SLC2A1','PARP1','RAD51','VIM','SNAI1','ALDH1A1',
-        'NANOG','EGFR','KIT','CXCL8','STAT3','KRAS','TP53'
-        # B cell antigen genes from Jose and Shirley
-        'OR2H1','SDCBP','OR5V1','GPR85','OR2H1','SDCBP','TSPAN31','TMEM191C','IGSF8'
-    ]"""
+        'Myh6'
+    ]
     tumor_genes = []
-    hla_genes = list(adata.var_names[adata.var_names.str.startswith("HLA")])    
+    hla_genes = list(adata.var_names[adata.var_names.str.startswith("H2-")])    
     select_genes=tumor_genes+hla_genes+list(top_n_gene_names)
     existing_genes = [gene for gene in select_genes if gene in adata.var_names]
 
     #genes_to_exclude=["CD68","STAT1","MMP13","EPDR1","CLCA1","FBLN1","C9orf16","ADGRF1","LINGO2"]
-    genes_to_exclude = []
+    genes_to_exclude=["Il2rb", "Ptprc", "Ccl5", "Ets1", "Nkg7", "Corola", "Rac2" , "Srgn", "Serpina3g"]
     existing_genes = [gene for gene in existing_genes if gene not in genes_to_exclude]
     
     # Subset adata using gene names to keep indices consistent
