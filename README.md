@@ -8,7 +8,7 @@
 It operates directly on spatial transcriptomics data (`.h5ad`) and constructs cell-centered neighborhoods (“bags”) for multi-instance learning.
 
 <p align="center">
-  <img src="assets/model.png" alt="SPACER model overview" width="620">
+  <img src="assets/model.svg" alt="SPACER model overview" width="620">
 </p>
 
 This repository provides:
