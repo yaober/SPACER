@@ -1,0 +1,5 @@
+adata,radius,resolution
+/project/shared/cli_wang/spatial_TCR/data/train_validate/Visium/HumanOvarianCancer/T_cell.h5ad,150,low
+/project/shared/cli_wang/spatial_TCR/data/train_validate/Visium/HumanOvarianCancerWholeTranscriptome/T_cell.h5ad,150,low
+
+
