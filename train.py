@@ -1,237 +1,237 @@
 import argparse
 import os
+from typing import List
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import pandas as pd
-from torch.utils.data import DataLoader, random_split
-from sklearn.metrics import roc_auc_score
+from torch.utils.data import DataLoader
 from tqdm import tqdm
+
 from model.dataset import BagsDataset, custom_collate_fn
-from model.model import MIL, EarlyStopping
+from model.model import MIL
 
-os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
-def load_all_genes(reference_gene_file):
-    all_genes = pd.read_csv(reference_gene_file)
-    return all_genes['Gene'].values.tolist()
+def _infer_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    return torch.device("cpu")
 
-def save_metrics(epoch, train_loss, val_loss, val_auroc, a, b, alpha, beta, output_dir):
-    file_path = os.path.join(output_dir, 'training_metrics.csv')
-    if not os.path.exists(file_path):
-        # Create the CSV file with headers
-        with open(file_path, 'w') as f:
-            f.write('Epoch,Train Loss,Val Loss,Val AUROC,a,b,alpha,beta\n')
-    
-    # Append metrics for the current epoch
-    with open(file_path, 'a') as f:
-        f.write(f'{epoch},{train_loss},{val_loss},{val_auroc},{a},{b},{alpha},{beta}\n')
 
-def save_spacer_scores(epoch, all_genes, spacer_scores_before_training, spacer_scores_after_training, output_dir):
-    # Create a DataFrame with SPACER Scores before and after the current epoch
-    spacer_score_data = {
-        'Gene': all_genes,
-        'SPACER Score Before Training': spacer_scores_before_training,
-        'SPACER Score After Training': spacer_scores_after_training,
-    }
-    df = pd.DataFrame(spacer_score_data)
-    
-    # Calculate the difference and add it as a new column
-    df['Difference'] = df['SPACER Score After Training'] - df['SPACER Score Before Training']
-    df = df.sort_values(by='Difference', ascending=False)
+def _set_global_ig(local_model: MIL, global_ig: torch.Tensor) -> None:
+    # Only broadcast the shared immunogenicity vector.
+    with torch.no_grad():
+        local_model.immunogenicity.ig.copy_(global_ig)
 
-    # Save to a CSV file for each epoch
-    output_path = os.path.join(output_dir, f'spacer_score_changes_epoch_{epoch+1}.csv')
-    df.to_csv(output_path, index=False)
 
-def train_model(args):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if device.type == "cuda":
-        print(f"Using device: {device} ({torch.cuda.get_device_name(torch.cuda.current_device())})")
-    else:
-        print(f"Using device: {device}")
-    print("=====================================")
+def _compute_bag_count(dataset) -> int:
+    """
+    FedAvg weighting uses the number of bags (instances) per node.
+    In this codebase, a dataset item corresponds to a "batch" containing k bags.
+    """
+    if hasattr(dataset, "batches"):
+        return sum(len(batch) for batch in dataset.batches)
+    if hasattr(dataset, "dataset") and hasattr(dataset.dataset, "batches"):
+        # torch.utils.data.Subset
+        base = dataset.dataset
+        idxs = dataset.indices
+        return sum(len(base.batches[i]) for i in idxs)
+    raise TypeError(f"Unsupported dataset type for bag counting: {type(dataset)}")
 
-    all_genes = load_all_genes(args.reference_gene)
-    print('Reference genes loaded:', len(all_genes))
-    print("=====================================")
-    
-    # Create the output directory if it does not exist
-    os.makedirs(args.output_dir, exist_ok=True)
 
-    # Initialize the model, criterion, optimizer, and early stopping
-    model = MIL(all_genes, gene_weighting=args.gene_weighting).to(device)  # Adjust 'k' as needed
-    criterion = nn.BCELoss().to(device)
-    optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=0.01)
-    #optimizer = optim.SGD(model.parameters(), lr=args.learning_rate, momentum=0.9)
-    early_stopping = EarlyStopping(patience=args.patience, delta=args.delta)
-    
-    # Load dataset and create DataLoader
+def _proximal_term_ig(local_model: MIL, global_ig: torch.Tensor) -> torch.Tensor:
+    # FedProx proximal term on shared parameters only.
+    # mu * ||Sp - S||_2^2 = mu * sum_g (ig_p[g] - ig[g])^2
+    return (local_model.immunogenicity.ig - global_ig).pow(2).sum()
+
+
+def _make_loaders_for_node(
+    data_csv: str,
+    immune_cell: str,
+    max_instances: int,
+    n_genes: int,
+    k: int,
+    batch_size: int,
+    num_workers: int,
+):
     dataset = BagsDataset(
-        args.data,
-        immune_cell=args.immune_cell,
-        max_instances=args.max_instances,
-        n_genes=args.n_genes,
-        k=2  # Ensure 'k' matches the number of bags per batch
+        data_csv,
+        immune_cell=immune_cell,
+        max_instances=max_instances,
+        n_genes=n_genes,
+        k=k,
     )
-    train_size = int(0.7 * len(dataset))
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
-    
-    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, collate_fn=custom_collate_fn)
-    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, collate_fn=custom_collate_fn)
+    bag_count = _compute_bag_count(dataset)
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        collate_fn=custom_collate_fn,
+        num_workers=num_workers,
+    )
+    return dataset, bag_count, loader
 
-    best_val_loss = float('inf')
-    best_model_path = os.path.join(args.output_dir, 'best_model.pth')
-
-    # Save SPACER Scores before training
-    spacer_scores_before_training = model.immunogenicity.ig.clone().detach().cpu()
-    spacer_scores_before_training = [score.item() for score in spacer_scores_before_training]
-
-    for epoch in range(args.num_epochs):
-        model.train()
-        running_loss = 0.0
-        
-        # Lists to store outputs and labels for AUROC calculation
-        all_outputs = []
-        all_labels = []
-        
-        with tqdm(train_loader, unit="batch") as tepoch:
-            for i, batch_data in enumerate(tepoch):
-                tepoch.set_description(f"Epoch {epoch+1}/{args.num_epochs}")
-                optimizer.zero_grad()
-
-                # Unpack the batch data
-                distances_list, gene_expressions_list, labels_list, core_idxs_list, gene_names_list, cell_ids_list = batch_data
-                
-                # Move data to device and prepare labels
-                distances_list = [distances.to(device) for distances in distances_list]
-                gene_expressions_list = [gene_exp.to(device) for gene_exp in gene_expressions_list]
-                labels = torch.stack(labels_list).float().to(device)
-                current_genes_list = gene_names_list  # List of gene names for each bag
-
-                # Forward pass
-                outputs = model(distances_list, gene_expressions_list, current_genes_list)
-                
-                if outputs is None:
-                    continue  # Skip this batch if the model returns None
-                
-                if outputs.shape[0] != labels.shape[0]:
-                    # Handle mismatch in batch sizes if necessary
-                    continue
-                
-                # Compute BCE loss
-                if args.selection == 'negative':
-                    labels = 1 - labels
-                loss = criterion(outputs, labels)
-                loss.backward()
-                optimizer.step()
-        
-                running_loss += loss.item()
-                tepoch.set_postfix(loss=loss.item())
-                
-                # Accumulate outputs and labels for AUROC calculation
-                all_outputs.extend(outputs.detach().cpu().numpy())
-                all_labels.extend(labels.cpu().numpy())
-
-        train_loss = running_loss / len(train_loader)
-        
-        # Compute Training AUROC
-        try:
-            epoch_auc = roc_auc_score(all_labels, all_outputs)
-        except ValueError:
-            epoch_auc = float('nan')  # Handle case where AUROC can't be computed
-        
-        print(f'Epoch [{epoch+1}/{args.num_epochs}], Loss: {train_loss:.4f}, AUROC: {epoch_auc:.4f}')
-        
-        # Validation phase
-        model.eval()
-        val_loss = 0.0
-        val_all_outputs = []
-        val_all_labels = []
-        with torch.no_grad():
-            with tqdm(val_loader, unit="batch") as vtepoch:
-                for val_batch_data in vtepoch:
-                    # Unpack validation batch data
-                    val_distances_list, val_gene_expressions_list, val_labels_list, val_core_idxs_list, val_gene_names_list, val_cell_ids_list = val_batch_data
-                    
-                    # Move data to device and prepare labels
-                    val_distances_list = [distances.to(device) for distances in val_distances_list]
-                    val_gene_expressions_list = [gene_exp.to(device) for gene_exp in val_gene_expressions_list]
-                    val_labels = torch.stack(val_labels_list).float().to(device)
-                    val_current_genes_list = val_gene_names_list  # List of gene names for each bag
-                    
-                    # Forward pass
-                    val_outputs = model(val_distances_list, val_gene_expressions_list, val_current_genes_list)
-                    
-                    if val_outputs is None:
-                        continue  # Skip this batch if the model returns None
-                    
-                    if val_outputs.shape[0] != val_labels.shape[0]:
-                        # Handle mismatch in batch sizes if necessary
-                        continue
-                    
-                    # Compute BCE loss
-                    if args.selection == 'negative':
-                        val_labels = 1 - val_labels
-                    loss = criterion(val_outputs, val_labels)
-                    val_loss += loss.item()
-                    vtepoch.set_postfix(val_loss=loss.item())
-                    
-                    # Accumulate outputs and labels for AUROC calculation
-                    val_all_outputs.extend(val_outputs.detach().cpu().numpy())
-                    val_all_labels.extend(val_labels.cpu().numpy())
-            
-            val_loss /= len(val_loader)
-            
-            # Compute Validation AUROC
-            try:
-                val_epoch_auc = roc_auc_score(val_all_labels, val_all_outputs)
-            except ValueError:
-                val_epoch_auc = float('nan')  # Handle case where AUROC can't be computed
-            
-            print(f'Validation Loss: {val_loss:.4f}, Validation AUROC: {val_epoch_auc:.4f}')
-
-        # Save the best model
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            torch.save(model.state_dict(), best_model_path)
-            print(f"Best model saved with validation loss {val_loss:.4f}")
-            
-        torch.save(model.state_dict(), os.path.join(args.output_dir, f'model_epoch_{epoch+1}.pth'))
-        
-        a = model.distance.a.clone().detach().cpu().numpy()
-        b = model.gene_expression.b.clone().detach().cpu()
-        alpha = model.alpha.clone().detach().cpu()
-        beta = model.beta.clone().detach().cpu()
-        # Save metrics
-        save_metrics(epoch+1, train_loss, val_loss, val_epoch_auc,a,b,alpha,beta, args.output_dir)
-
-        # Save SPACER Scores after each epoch
-        spacer_scores_after_training = model.immunogenicity.ig.clone().detach().cpu()
-        spacer_scores_after_training = [score.item() for score in spacer_scores_after_training]
-        save_spacer_scores(epoch, all_genes, spacer_scores_before_training, spacer_scores_after_training, args.output_dir)
-    
-    # Save the final model
-    torch.save(model.state_dict(), os.path.join(args.output_dir, 'final_model.pth'))
 
 def main():
-    parser = argparse.ArgumentParser(description='Train a MIL model for gene expression and immunogenicity.')
-    parser.add_argument('--data', type=str, required=True, help='Path to the training data file.')
-    parser.add_argument('--reference_gene', type=str, required=True, help='Path to the reference gene CSV file.')
-    parser.add_argument('--output_dir', type=str, required=True, help='Directory to save output files.')
-    parser.add_argument('--immune_cell', type=str, default='tcell', help='Type of immune cell to consider.')
-    parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate for the optimizer.')
-    parser.add_argument('--num_epochs', type=int, default=1000, help='Number of epochs to train the model.')
-    parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping.')
-    parser.add_argument('--delta', type=float, default=0.001, help='Minimum change to qualify as an improvement.')
-    parser.add_argument('--max_instances', type=int, default=None, help='Maximum instances for the dataset.')
-    parser.add_argument('--n_genes', type=int, default=10000, help='Number of genes to consider.')
-    parser.add_argument('--selection', type=str, default='positive', help='Selection of positive or negative samples.')
-    parser.add_argument('--gene_weighting', type=str, default='softmax', choices=['softmax', 'sparsemax'], help='How to weight gene expressions within each bag.')
-    
-    args = parser.parse_args()
-    train_model(args)
+    parser = argparse.ArgumentParser(description="FedAvg + FedProx for SPACER MIL")
+    parser.add_argument(
+        "--nodes",
+        type=str,
+        required=True,
+        help="Comma-separated list of per-node CSV paths (one SRT source per node).",
+    )
+    parser.add_argument("--reference_gene", type=str, required=True, help="Path to reference gene CSV.")
+    parser.add_argument("--output_dir", type=str, required=True, help="Where to save federated checkpoints.")
+    parser.add_argument("--immune_cell", type=str, default="tcell", help="Immune cell type to consider.")
 
-if __name__ == '__main__':
+    # Federated parameters
+    parser.add_argument("--rounds", type=int, default=10, help="Number of communication rounds T.")
+    parser.add_argument("--local_epochs", type=int, default=1, help="Local epochs U per round.")
+    parser.add_argument("--mu", type=float, default=0.0, help="FedProx proximal strength on shared ig.")
+
+    # Optim/training parameters
+    parser.add_argument("--learning_rate", type=float, default=1e-4, help="Client learning rate.")
+    parser.add_argument("--batch_size", type=int, default=1, help="Mini-batch size (bags are still inside a sample).")
+    parser.add_argument("--num_workers", type=int, default=0)
+    parser.add_argument("--selection", type=str, default="positive", choices=["positive", "negative"])
+
+    # Dataset/model parameters
+    parser.add_argument("--max_instances", type=int, default=None)
+    parser.add_argument("--n_genes", type=int, default=10000)
+    parser.add_argument("--k", type=int, default=2, help="Number of bags per batch (see existing training code).")
+    parser.add_argument("--gene_weighting", type=str, default="softmax", choices=["softmax", "sparsemax"], help="Gene weighting gate within each bag.")
+
+    args = parser.parse_args()
+
+    device = _infer_device()
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    # Existing `custom_collate_fn` assumes each DataLoader batch contains exactly one dataset item.
+    if args.batch_size != 1:
+        raise ValueError("--batch_size must be 1 to match `custom_collate_fn` and MIL bag batching.")
+
+    node_csvs = [x.strip() for x in args.nodes.split(",") if x.strip()]
+    if len(node_csvs) < 2:
+        raise ValueError("Federated training expects at least 2 nodes (comma-separate multiple CSV paths).")
+
+    # Load reference genes -> shared parameter size.
+    import pandas as pd
+
+    all_genes = pd.read_csv(args.reference_gene)["Gene"].values.tolist()
+
+    # Server global model keeps only ig; private parameters are node-local.
+    server_model = MIL(all_genes, gene_weighting=args.gene_weighting).to(device)
+    global_ig = server_model.immunogenicity.ig.detach().clone().to(device)
+
+    # Initialize persistent client models (private params persist across rounds).
+    client_models: List[MIL] = []
+    client_loaders: List[DataLoader] = []
+    client_bag_counts: List[int] = []
+
+    for node_idx, node_csv in enumerate(node_csvs):
+        dataset, bag_count, loader = _make_loaders_for_node(
+            data_csv=node_csv,
+            immune_cell=args.immune_cell,
+            max_instances=args.max_instances,
+            n_genes=args.n_genes,
+            k=args.k,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+        )
+        # Each client gets its own model instance (private parameters persist).
+        local_model = MIL(all_genes, gene_weighting=args.gene_weighting).to(device)
+        _set_global_ig(local_model, global_ig)
+
+        client_models.append(local_model)
+        client_loaders.append(loader)
+        client_bag_counts.append(bag_count)
+
+        # Save config mapping for reproducibility.
+        with open(os.path.join(args.output_dir, "federated_nodes.txt"), "a") as f:
+            f.write(f"node_{node_idx}\t{node_csv}\tbag_count={bag_count}\n")
+
+    total_bags = sum(client_bag_counts)
+    if total_bags <= 0:
+        raise ValueError("Total bag count across nodes is 0; check input datasets.")
+
+    # Communication rounds
+    for t in range(1, args.rounds + 1):
+        print(f"\n=== Round {t}/{args.rounds} ===")
+
+        # Broadcast shared global parameters S -> each client.
+        global_ig_detached = global_ig.detach().clone()
+        for local_model in client_models:
+            _set_global_ig(local_model, global_ig_detached.to(device))
+
+        client_ig_updates: List[torch.Tensor] = []
+
+        for p, (local_model, loader) in enumerate(zip(client_models, client_loaders)):
+            print(f"[Client {p}] local training...")
+            # Use a snapshot of S for the proximal term within this round.
+            global_ig_snapshot = global_ig_detached.to(device)
+
+            # Reset optimizer each local epoch schedule; private params persist.
+            # (If you want to persist optimizer state across rounds, say so.)
+            local_model.train()
+            optimizer = optim.AdamW(local_model.parameters(), lr=args.learning_rate, weight_decay=0.01)
+            criterion = nn.BCELoss().to(device)
+
+            for _ in range(args.local_epochs):
+                for batch_data in tqdm(loader, unit="batch", leave=False):
+                    (
+                        distances_list,
+                        gene_expressions_list,
+                        labels_list,
+                        _core_idxs_list,
+                        gene_names_list,
+                        _cell_ids_list,
+                    ) = batch_data
+
+                    distances_list = [distances.to(device) for distances in distances_list]
+                    gene_expressions_list = [gene_exp.to(device) for gene_exp in gene_expressions_list]
+                    labels = torch.stack(labels_list).float().to(device)
+                    current_genes_list = gene_names_list
+
+                    if args.selection == "negative":
+                        labels = 1 - labels
+
+                    outputs = local_model(distances_list, gene_expressions_list, current_genes_list)
+                    if outputs is None:
+                        continue
+                    if outputs.shape[0] != labels.shape[0]:
+                        continue
+
+                    bce_loss = criterion(outputs, labels)
+                    if args.mu > 0:
+                        prox = _proximal_term_ig(local_model, global_ig_snapshot)
+                        loss = bce_loss + args.mu * prox
+                    else:
+                        loss = bce_loss
+
+                    optimizer.zero_grad(set_to_none=True)
+                    loss.backward()
+                    optimizer.step()
+
+            client_ig_updates.append(local_model.immunogenicity.ig.detach().clone())
+
+        # Weighted aggregation: S <- sum_p n_p * S_p / sum_p n_p
+        weighted_sum = torch.zeros_like(global_ig)
+        for p, ig_p in enumerate(client_ig_updates):
+            weighted_sum += client_bag_counts[p] * ig_p
+        global_ig = (weighted_sum / float(total_bags)).to(device)
+
+        # Save checkpoints
+        torch.save(global_ig.detach().cpu(), os.path.join(args.output_dir, f"global_ig_round_{t}.pt"))
+        if args.rounds == t:
+            for p, local_model in enumerate(client_models):
+                torch.save(
+                    local_model.state_dict(),
+                    os.path.join(args.output_dir, f"client_{p}_final_model.pth"),
+                )
+
+        print(f"Updated global_ig (L2 norm): {global_ig.norm().item():.4f}")
+
+
+if __name__ == "__main__":
     main()
+
