@@ -19,16 +19,23 @@ class Distance(nn.Module):
         return x
 
 class Gene_expression(nn.Module):
-    def __init__(self):
+    def __init__(self, weighting: str = "softmax", dim: int = -1):
         super(Gene_expression, self).__init__()
         self.b = nn.Parameter(torch.tensor(1.0),requires_grad=True)
-        #self.sparsemax = Sparsemax(dim=-1) 
-        self.softmax = nn.Softmax(dim=-1)
+        self.weighting = weighting
+        self.dim = dim
+        if weighting == "softmax":
+            self.gate = nn.Softmax(dim=dim)
+        elif weighting == "sparsemax":
+            self.gate = Sparsemax(dim=dim)
+        else:
+            raise ValueError(f"Unknown gene weighting: {weighting}. Use 'softmax' or 'sparsemax'.")
 
     def forward(self, x):
 
         b = self.b
-        x = self.softmax(torch.exp(b) * x)
+        # Gating weights genes within a bag (per instance) before immunogenicity dot-product.
+        x = self.gate(torch.exp(b) * x)
         return x
 
 class Immunogenicity(nn.Module):
@@ -46,10 +53,10 @@ class Immunogenicity(nn.Module):
         return ig, filtered_genes
 
 class MIL(nn.Module):
-    def __init__(self, all_genes):
+    def __init__(self, all_genes, gene_weighting: str = "softmax"):
         super(MIL, self).__init__()
         self.distance = Distance()
-        self.gene_expression = Gene_expression()
+        self.gene_expression = Gene_expression(weighting=gene_weighting, dim=-1)
         self.immunogenicity = Immunogenicity(all_genes)
         self.alpha = nn.Parameter(torch.tensor(1.0))
         self.beta = nn.Parameter(torch.tensor(1.0))

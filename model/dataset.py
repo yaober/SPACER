@@ -151,6 +151,8 @@ class BagsDataset(Dataset):
 
     def create_bags(self, adata_radius_list):
         all_batches = []
+        total_pos_raw = 0
+        total_neg_raw = 0
         for adata, radius, resolution in adata_radius_list:
             # Collect positive and negative bags per adata
             positive_bags = []
@@ -197,7 +199,10 @@ class BagsDataset(Dataset):
                     positive_bags.append(bag)
                 else:
                     negative_bags.append(bag)
-
+            pos_raw = len(positive_bags)
+            neg_raw = len(negative_bags)
+            total_pos_raw += pos_raw
+            total_neg_raw += neg_raw
             num_negative_per_batch = self.k - 1
             if len(negative_bags) < num_negative_per_batch:
                 print(f"Not enough negative bags in this adata to create batches. Dropping extra positive bags.")
@@ -220,6 +225,10 @@ class BagsDataset(Dataset):
                 all_batches.append(batch)
 
         total_batches = len(all_batches)
+        print("========== RAW BAG COUNT (before neg trimming) ==========")
+        print(f"Total positive bags (raw): {total_pos_raw}")
+        print(f"Total negative bags (raw): {total_neg_raw}")
+        print(f"Total bags (raw): {total_pos_raw + total_neg_raw}")
         print(f"Total batches created: {total_batches}")
         return all_batches
 

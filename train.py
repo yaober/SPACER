@@ -60,7 +60,7 @@ def train_model(args):
     os.makedirs(args.output_dir, exist_ok=True)
 
     # Initialize the model, criterion, optimizer, and early stopping
-    model = MIL(all_genes).to(device)  # Adjust 'k' as needed
+    model = MIL(all_genes, gene_weighting=args.gene_weighting).to(device)  # Adjust 'k' as needed
     criterion = nn.BCELoss().to(device)
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=0.01)
     #optimizer = optim.SGD(model.parameters(), lr=args.learning_rate, momentum=0.9)
@@ -228,6 +228,7 @@ def main():
     parser.add_argument('--max_instances', type=int, default=None, help='Maximum instances for the dataset.')
     parser.add_argument('--n_genes', type=int, default=10000, help='Number of genes to consider.')
     parser.add_argument('--selection', type=str, default='positive', help='Selection of positive or negative samples.')
+    parser.add_argument('--gene_weighting', type=str, default='softmax', choices=['softmax', 'sparsemax'], help='How to weight gene expressions within each bag.')
     
     args = parser.parse_args()
     train_model(args)
