@@ -40,4 +40,5 @@ negative_heart
 inhibit_model
 validation_heart/
 validation_tumor/
-*nk*
+benchmark_*
+benchmark.py

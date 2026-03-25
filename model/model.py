@@ -19,16 +19,22 @@ class Distance(nn.Module):
         return x
 
 class Gene_expression(nn.Module):
-    def __init__(self):
+    def __init__(self, gene_weighting: str = "softmax"):
         super(Gene_expression, self).__init__()
         self.b = nn.Parameter(torch.tensor(1.0),requires_grad=True)
-        #self.sparsemax = Sparsemax(dim=-1) 
-        self.softmax = nn.Softmax(dim=-1)
+        gene_weighting = gene_weighting.lower().strip()
+        if gene_weighting == "softmax":
+            self.activation = nn.Softmax(dim=-1)
+        elif gene_weighting == "sparsemax":
+            # Normalize gene expression weights with Sparsemax (sparse probability-like output).
+            self.activation = Sparsemax(dim=-1)
+        else:
+            raise ValueError("gene_weighting must be one of: 'softmax', 'sparsemax'")
 
     def forward(self, x):
 
         b = self.b
-        x = self.softmax(torch.exp(b) * x)
+        x = self.activation(torch.exp(b) * x)
         return x
 
 class Immunogenicity(nn.Module):
@@ -46,10 +52,10 @@ class Immunogenicity(nn.Module):
         return ig, filtered_genes
 
 class MIL(nn.Module):
-    def __init__(self, all_genes):
+    def __init__(self, all_genes, gene_weighting: str = "softmax"):
         super(MIL, self).__init__()
         self.distance = Distance()
-        self.gene_expression = Gene_expression()
+        self.gene_expression = Gene_expression(gene_weighting=gene_weighting)
         self.immunogenicity = Immunogenicity(all_genes)
         self.alpha = nn.Parameter(torch.tensor(1.0))
         self.beta = nn.Parameter(torch.tensor(1.0))
