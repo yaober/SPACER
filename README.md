@@ -42,7 +42,7 @@ python train.py \
   --output_dir outputs/run1
 ```
 
-#### Joint moide*
+#### Joint moide
 
 Provide one CSV per SRT dataset via `--joint_data` (each CSV follows the same format as `--data`).
 

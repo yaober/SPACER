@@ -47,3 +47,4 @@ model/dataset_benchmark.py
 model/pmtnet.ipynb
 finetune*
 results.ipynb
+predict.ipynb
