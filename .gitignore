@@ -43,8 +43,3 @@ validation_tumor/
 benchmark_*
 benchmark.py
 scripts*
-model/dataset_benchmark.py
-model/pmtnet.ipynb
-finetune*
-results.ipynb
-predict.ipynb
