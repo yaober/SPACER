@@ -25,12 +25,12 @@ This repository provides:
 `train.py` supports two modes:
 
 - **Single mode**: standard single-dataset training or pooling all bags from all datasets as if they come from one single dataset.
-- **Joint moide**: Multiple samples that are input into SPACER under the joint-sample analysis mode, with optional regularization on the *global/shared* parameters to stabilize training under heterogeneous SRT sources.
+- **Joint mode**: Multiple samples that are input into SPACER under the joint-sample analysis mode, with optional regularization on the *global/shared* parameters to stabilize training under heterogeneous SRT sources.
 
 In the current MIL SPACER implementation, federated aggregation is applied to the global parameter vector:
 
-- **Global/shared \(S\)**: `SPACER`
-- **Client-private parameters (kept local)**: `Distance`, `Gene expression` and scale paremeters
+- **Global/shared \(S\)**: `SPACER score`
+- **Data specific parameters (kept local)**: `Distance`, `Gene expression` and scale paremeters
 
 #### Single mode
 
@@ -49,7 +49,7 @@ Provide one CSV per SRT dataset via `--joint_data` (each CSV follows the same fo
 ```bash
 python train.py \
   --training_mode joint \
-  --joint_data client1.csv client2.csv client3.csv \
+  --joint_data data.csv \
   --comm_rounds 50 \
   --local_epochs 1 \
   --fedprox_mu 0.01 \
