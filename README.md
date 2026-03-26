@@ -25,7 +25,7 @@ This repository provides:
 `train.py` supports two modes:
 
 - **Centralized**: standard single-dataset training or pooling all bags from all datasets as if they come from one single dataset.
-- **Federated**: round-based **FedAvg** across multiple samples that are input into SPACER, with optional **FedProx** regularization on the *global/shared* parameters to stabilize training under heterogeneous (non-IID) SRT sources.
+- **Federated**: round-based **FedAvg** across multiple samples that are input into SPACER under the joint-sample analysis mode, with optional **FedProx** regularization on the *global/shared* parameters to stabilize training under heterogeneous (non-IID) SRT sources.
 
 In the current MIL SPACER implementation, federated aggregation is applied to the global parameter vector:
 
