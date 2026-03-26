@@ -20,6 +20,44 @@ This repository provides:
 
 ---
 
+### 🧪 Training modes (centralized vs federated)
+
+`train.py` supports two modes:
+
+- **Centralized**: standard single-dataset training (default).
+- **Federated**: round-based **FedAvg** across multiple nodes/clients, with optional **FedProx** regularization on the *global/shared* parameters to stabilize training under heterogeneous (non-IID) SRT sources.
+
+In the current MIL SPACER implementation, federated aggregation is applied to the global parameter vector:
+
+- **Global/shared \(S\)**: `immunogenicity.ig`
+- **Client-private parameters (kept local)**: `distance.a`, `gene_expression.b`, `alpha`, `beta`
+
+#### Centralized training
+
+```bash
+python train.py \
+  --training_mode centralized \
+  --data path/to/training.csv \
+  --reference_gene path/to/reference_genes.csv \
+  --output_dir outputs/run1
+```
+
+#### Federated training (FedAvg + FedProx)
+
+Provide one CSV per client/node via `--client_data` (each CSV follows the same format as `--data`).
+
+```bash
+python train.py \
+  --training_mode federated \
+  --client_data client1.csv client2.csv client3.csv \
+  --comm_rounds 50 \
+  --local_epochs 1 \
+  --fedprox_mu 0.01 \
+  --reference_gene path/to/reference_genes.csv \
+  --output_dir outputs/federated_run \
+  --save_global_each_round
+```
+
 ### 📄 Full Documentation  
 For full installation instructions, data preparation steps, and detailed tutorials, visit:
 
