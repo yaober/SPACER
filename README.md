@@ -20,41 +20,41 @@ This repository provides:
 
 ---
 
-### 🧪 Training modes (centralized vs federated)
+### 🧪 Training modes
 
 `train.py` supports two modes:
 
-- **Centralized**: standard single-dataset training or pooling all bags from all datasets as if they come from one single dataset.
-- **Federated**: round-based **FedAvg** across multiple samples that are input into SPACER under the joint-sample analysis mode, with optional **FedProx** regularization on the *global/shared* parameters to stabilize training under heterogeneous (non-IID) SRT sources.
+- **Single mode**: standard single-dataset training or pooling all bags from all datasets as if they come from one single dataset.
+- **Joint moide**: Multiple samples that are input into SPACER under the joint-sample analysis mode, with optional regularization on the *global/shared* parameters to stabilize training under heterogeneous SRT sources.
 
 In the current MIL SPACER implementation, federated aggregation is applied to the global parameter vector:
 
-- **Global/shared \(S\)**: `immunogenicity.ig`
-- **Client-private parameters (kept local)**: `distance.a`, `gene_expression.b`, `alpha`, `beta`
+- **Global/shared \(S\)**: `SPACER`
+- **Client-private parameters (kept local)**: `Distance`, `Gene expression` and scale paremeters
 
-#### Centralized training
+#### Single mode
 
 ```bash
 python train.py \
-  --training_mode centralized \
+  --training_mode single \
   --data path/to/training.csv \
   --reference_gene path/to/reference_genes.csv \
   --output_dir outputs/run1
 ```
 
-#### Federated training (FedAvg + FedProx)
+#### Joint moide*
 
-Provide one CSV per SRT dataset via `--client_data` (each CSV follows the same format as `--data`).
+Provide one CSV per SRT dataset via `--joint_data` (each CSV follows the same format as `--data`).
 
 ```bash
 python train.py \
-  --training_mode federated \
-  --client_data client1.csv client2.csv client3.csv \
+  --training_mode joint \
+  --joint_data client1.csv client2.csv client3.csv \
   --comm_rounds 50 \
   --local_epochs 1 \
   --fedprox_mu 0.01 \
   --reference_gene path/to/reference_genes.csv \
-  --output_dir outputs/federated_run \
+  --output_dir outputs/joint_run \
   --save_global_each_round
 ```
 

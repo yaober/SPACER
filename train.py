@@ -138,7 +138,7 @@ def train_model(args):
     # Create the output directory if it does not exist
     os.makedirs(args.output_dir, exist_ok=True)
 
-    if args.training_mode == "centralized":
+    if args.training_mode == "single":
         # Initialize the model, criterion, optimizer, and early stopping
         model = MIL(all_genes, gene_weighting=args.gene_weighting).to(device)
         criterion = nn.BCELoss().to(device)
@@ -268,16 +268,16 @@ def train_model(args):
         torch.save(model.state_dict(), os.path.join(args.output_dir, 'final_model.pth'))
         return
 
-    if args.training_mode == "federated":
-        if args.client_data is None or len(args.client_data) == 0:
-            raise ValueError("--client_data is required when --training_mode federated")
+    if args.training_mode == "joint":
+        if args.joint_data is None or len(args.joint_data) == 0:
+            raise ValueError("--joint_data is required when --training_mode joint")
 
         criterion = nn.BCELoss().to(device)
 
-        client_datasets = []
+        joint_datasets = []
         client_loaders = []
         client_weights = []
-        for client_path in args.client_data:
+        for client_path in args.joint_data:
             ds = BagsDataset(
                 client_path,
                 immune_cell=args.immune_cell,
@@ -286,7 +286,7 @@ def train_model(args):
                 k=2
             )
             loader = DataLoader(ds, batch_size=1, shuffle=True, collate_fn=custom_collate_fn)
-            client_datasets.append(ds)
+            joint_datasets.append(ds)
             client_loaders.append(loader)
             client_weights.append(float(len(ds)))
 
@@ -320,7 +320,7 @@ def train_model(args):
                     )
 
                 client_global_updates.append(_get_global_state(client_model))
-                print(f"Client {client_idx+1}/{len(client_loaders)} done (bags={len(client_datasets[client_idx])}).")
+                print(f"Client {client_idx+1}/{len(client_loaders)} done (bags={len(joint_datasets[client_idx])}).")
 
             global_state = _fedavg_global_states(client_global_updates, client_weights)
             _load_global_state_(global_model, global_state)
@@ -334,23 +334,23 @@ def train_model(args):
     raise ValueError(f"Unknown training_mode: {args.training_mode}")
 
 def main():
-    parser = argparse.ArgumentParser(description='Train a MIL model for gene expression and immunogenicity.')
-    parser.add_argument('--training_mode', type=str, default='centralized', choices=['centralized', 'federated'],
-                        help='Training mode: centralized (single dataset) or federated (FedAvg + FedProx on global params).')
-    parser.add_argument('--data', type=str, required=False, help='Path to the training data file (centralized mode).')
-    parser.add_argument('--client_data', type=str, nargs='+', required=False,
-                        help='List of client CSVs (one per node) for federated mode.')
+    parser = argparse.ArgumentParser(description='Train a MIL model for gene expression and spacer score prediction.')
+    parser.add_argument('--training_mode', type=str, default='single', choices=['single', 'joint'],
+                        help='Training mode: single (single dataset) or joint (FedAvg + FedProx on global params).')
+    parser.add_argument('--data', type=str, required=False, help='Path to the training data file (single mode).')
+    parser.add_argument('--joint_data', type=str, nargs='+', required=False,
+                        help='List of client CSVs (one per node) for joint mode.')
     parser.add_argument('--reference_gene', type=str, required=True, help='Path to the reference gene CSV file.')
     parser.add_argument('--output_dir', type=str, required=True, help='Directory to save output files.')
     parser.add_argument('--immune_cell', type=str, default='tcell', help='Type of immune cell to consider.')
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate for the optimizer.')
     parser.add_argument('--num_epochs', type=int, default=1000, help='Number of epochs to train the model.')
-    parser.add_argument('--comm_rounds', type=int, default=50, help='Number of communication rounds (federated mode).')
-    parser.add_argument('--local_epochs', type=int, default=1, help='Number of local epochs per round (federated mode).')
+    parser.add_argument('--comm_rounds', type=int, default=50, help='Number of communication rounds (joint mode).')
+    parser.add_argument('--local_epochs', type=int, default=1, help='Number of local epochs per round (joint mode).')
     parser.add_argument('--fedprox_mu', type=float, default=0.0,
                         help='FedProx proximal strength (0 disables). Applies to global params only.')
     parser.add_argument('--save_global_each_round', action='store_true',
-                        help='If set, saves `global_model_round_{t}.pth` each round (federated mode).')
+                        help='If set, saves `global_model_round_{t}.pth` each round (joint mode).')
     parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping.')
     parser.add_argument('--delta', type=float, default=0.001, help='Minimum change to qualify as an improvement.')
     parser.add_argument('--max_instances', type=int, default=None, help='Maximum instances for the dataset.')
@@ -360,8 +360,8 @@ def main():
                         help='How to normalize gene-expression weights across genes.')
     
     args = parser.parse_args()
-    if args.training_mode == "centralized" and not args.data:
-        parser.error("--data is required when --training_mode centralized")
+    if args.training_mode == "single" and not args.data:
+        parser.error("--data is required when --training_mode single")
     train_model(args)
 
 if __name__ == '__main__':
