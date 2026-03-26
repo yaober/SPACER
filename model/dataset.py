@@ -97,7 +97,19 @@ class BagsDataset(Dataset):
         self.n_genes = n_genes
         self.k = k  # Number of bags per batch
         if isinstance(input_data, str):
-            self.batches = self.create_bags_from_csv(input_data)
+            lower_path = input_data.lower()
+            if lower_path.endswith(".h5ad"):
+                adata = sc.read_h5ad(input_data)
+                adata.obs_names_make_unique()
+                adata = preprocess_data(adata, self.immune_cell, self.n_genes, self.resolution)
+                print(f"Preprocessed data: {adata.X.shape}")
+                self.batches = self.create_bags_from_adata(adata)
+            elif lower_path.endswith(".csv"):
+                self.batches = self.create_bags_from_csv(input_data)
+            else:
+                raise ValueError(
+                    "input_data path must end with .csv (manifest) or .h5ad (single dataset)"
+                )
         elif isinstance(input_data, sc.AnnData):
             input_data = preprocess_data(input_data, immune_cell, n_genes, self.resolution)
             print(f"Preprocessed data: {input_data.X.shape}")

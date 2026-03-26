@@ -1,5 +1,6 @@
 import argparse
 import os
+from typing import Optional
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -55,7 +56,7 @@ def _local_train_one_epoch(
     criterion: torch.nn.Module,
     selection: str,
     fedprox_mu: float,
-    global_ref_state: dict | None,
+    global_ref_state: Optional[dict],
 ) -> float:
     model.train()
     running_loss = 0.0
