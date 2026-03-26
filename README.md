@@ -44,7 +44,7 @@ python train.py \
 
 #### Federated training (FedAvg + FedProx)
 
-Provide one CSV per client/node via `--client_data` (each CSV follows the same format as `--data`).
+Provide one CSV per SRT dataset via `--client_data` (each CSV follows the same format as `--data`).
 
 ```bash
 python train.py \
