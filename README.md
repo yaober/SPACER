@@ -72,4 +72,13 @@ Example datasets used in tutorials are available here:
 
 ---
 
+### 📂 Model Weights
+Pretained model weights(Tumor discovery cohort) are available here:
+
+👉 **https://drive.google.com/file/d/1VpY3TeCLLExAHyccilohpA98wD4-g6Pe/view?usp=share_link**
+
+This pretrained model could erve as the foundation for the second stage of fine-tuning.
+
+---
+
 If you have questions or want to contribute, feel free to open an issue or pull request!
