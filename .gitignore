@@ -1,43 +1,65 @@
-example.h5ad
-bags.csv
-scripts/*.out
-scripts/*.err
+# Large data files
+*.h5ad
+*.pth
+
+# Job scheduler output (SLURM)
 *.out
 *.err
-*.h5ad
-test/*
-results/*
-*.pth
-10_old_data/*
-*.h5ad
-fine_tuned_model/*
-final_models/*
-final_models/*
-simulate_data/*
+job_*
+
+# Log files
 *.log
-fine_tune_individual_pretrain2
-fine_tuned_model_10000
-fine_tuned_model_by8000
-pretrained_models
-train_indiviual
-train_indiviual_lr_0.1
-fine_tune_individual_pretrain2_lr_0.1
-fine_tuned_model_20000_8000
-negative_control*
-fine_tune_individual_pretrain2_lr_0.1_epochs
-fine_tuned_model_20000_2000
-tmp*
-finalize*
-fine_tuned_model*
-test_*
-finetune_model*
-validation/pmhc
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Images and PDFs (output figures)
 *.pdf
-data/hyun/*
-data/all_mouse_genes.csv
-mouse_heart
-negative_heart
-inhibit_model
+*.png
+
+# Temp files
+tmp*
+
+# System files
+.DS_Store
+
+# CSV data files
+*.csv
+
+# Data and scripts directories
+data/
+scripts/
+
+# Result directories
+benchmark_cosmx_holdout/
+benchmark_gnn_tf_knn_real/
+benchmark_ml_fastimp*/
+benchmark_real_data/
+benchmark_rf_score_valid/
+benchmark_rf_simulation/
+benchmark_scalability_out*/
+benchmark_spacer*/
+expression_matched_background_new/
+finalize*/
+finetune_model*/
+fine_tuned_model*/
+inhibit_model/
+logs/
+mouse_heart/
+negative_control*/
+negative_heart/
+pretrained_models/
+sample_output/
+sensitivity/
+sensitivity_n_genes/
+sensitivity_perm_gene_coords_label_compart/
+spatial_plots/
+stability/
+test/
+test_*/
+train_indiviual*/
 validation_heart/
 validation_tumor/
-*benchmark*
+14scRNA/

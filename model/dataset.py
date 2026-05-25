@@ -9,6 +9,55 @@ from tqdm import trange
 from scipy.sparse import issparse
 
 
+def apply_negative_control(adata, nc_type, immune_col, seed=42):
+    """
+    Apply a negative control permutation to adata AFTER preprocess_data.
+
+    nc_type options:
+      'gene_perm'        – permute each gene's expression across all cells
+                          (destroys gene-level spatial signal, preserves per-cell total)
+      'coord_perm'       – randomly reassign spatial (X, Y) coordinates
+                          (destroys neighbourhood structure)
+      'label_perm'       – shuffle immune-cell infiltration labels across all cells
+                          (breaks expression→label association)
+      'intra_comp_shuffle' – shuffle expression rows within each cell-type compartment
+                          (preserves compartment-level statistics, destroys per-cell location link)
+    """
+    np.random.seed(seed)
+    adata = adata.copy()
+
+    if nc_type == 'gene_perm':
+        X = adata.X.toarray() if issparse(adata.X) else adata.X.copy().astype(np.float32)
+        for j in range(X.shape[1]):
+            np.random.shuffle(X[:, j])
+        adata.X = X
+
+    elif nc_type == 'coord_perm':
+        idx = np.random.permutation(len(adata.obs))
+        adata.obs['X'] = adata.obs['X'].values[idx]
+        adata.obs['Y'] = adata.obs['Y'].values[idx]
+
+    elif nc_type == 'label_perm':
+        vals = adata.obs[immune_col].values.copy()
+        np.random.shuffle(vals)
+        adata.obs[immune_col] = vals
+
+    elif nc_type == 'intra_comp_shuffle':
+        X = adata.X.toarray() if issparse(adata.X) else adata.X.copy().astype(np.float32)
+        cell_types = adata.obs['cell_type'].astype(int).values
+        for ct in np.unique(cell_types):
+            mask = np.where(cell_types == ct)[0]
+            if len(mask) > 1:
+                perm = np.random.permutation(mask)
+                X[mask] = X[perm]
+        adata.X = X
+
+    elif nc_type is not None:
+        raise ValueError(f"Unknown nc_type '{nc_type}'. Choose from: gene_perm, coord_perm, label_perm, intra_comp_shuffle")
+
+    return adata
+
+
 def preprocess_data(adata, immune_cell, n_genes, resolution):
     # Read the data
     
@@ -88,7 +137,7 @@ def preprocess_data(adata, immune_cell, n_genes, resolution):
 
 
 class BagsDataset(Dataset):
-    def __init__(self, input_data, immune_cell, max_instances=None, radius=200, resolution='low', n_genes=500, k=2):
+    def __init__(self, input_data, immune_cell, max_instances=None, radius=200, resolution='low', n_genes=500, k=2, nc_type=None):
         self.immune_cell = map_immune_cell(immune_cell)
         print(f"Immune cell: {self.immune_cell}")
         self.max_instances = max_instances
@@ -96,10 +145,14 @@ class BagsDataset(Dataset):
         self.resolution = resolution
         self.n_genes = n_genes
         self.k = k  # Number of bags per batch
+        self.nc_type = nc_type
+        if nc_type is not None:
+            print(f"Negative control: {nc_type}")
         if isinstance(input_data, str):
             self.batches = self.create_bags_from_csv(input_data)
         elif isinstance(input_data, sc.AnnData):
             input_data = preprocess_data(input_data, immune_cell, n_genes, self.resolution)
+            input_data = apply_negative_control(input_data, self.nc_type, self.immune_cell)
             print(f"Preprocessed data: {input_data.X.shape}")
             self.batches = self.create_bags_from_adata(input_data)
         else:
@@ -140,6 +193,7 @@ class BagsDataset(Dataset):
             adata = sc.read_h5ad(adata_path)
             adata.obs_names_make_unique()
             adata = preprocess_data(adata, self.immune_cell, self.n_genes, resolution=resolution)
+            adata = apply_negative_control(adata, self.nc_type, self.immune_cell)
             radius = row['radius'] if 'radius' in row and not pd.isna(row['radius']) else self.radius
             adata_radius_list.append((adata, radius, resolution))
             print(f"Processing: adata={adata_path.split('/')[-1]}, radius={radius}, resolution={resolution}")

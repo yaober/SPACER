@@ -16,6 +16,7 @@ class Distance(nn.Module):
         #print(x)
         a = self.a
         x = self.softmax(-torch.exp(a) * x)
+        #x = torch.exp(-torch.exp(a) * x)
         return x
 
 class Gene_expression(nn.Module):

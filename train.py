@@ -1,5 +1,7 @@
 import argparse
 import os
+import random
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -44,7 +46,15 @@ def save_spacer_scores(epoch, all_genes, spacer_scores_before_training, spacer_s
     output_path = os.path.join(output_dir, f'spacer_score_changes_epoch_{epoch+1}.csv')
     df.to_csv(output_path, index=False)
 
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
 def train_model(args):
+    set_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type == "cuda":
         print(f"Using device: {device} ({torch.cuda.get_device_name(torch.cuda.current_device())})")
@@ -228,7 +238,8 @@ def main():
     parser.add_argument('--max_instances', type=int, default=None, help='Maximum instances for the dataset.')
     parser.add_argument('--n_genes', type=int, default=10000, help='Number of genes to consider.')
     parser.add_argument('--selection', type=str, default='positive', help='Selection of positive or negative samples.')
-    
+    parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility.')
+
     args = parser.parse_args()
     train_model(args)
 
