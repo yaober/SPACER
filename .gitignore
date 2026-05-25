@@ -63,3 +63,4 @@ train_indiviual*/
 validation_heart/
 validation_tumor/
 14scRNA/
+*.npz
