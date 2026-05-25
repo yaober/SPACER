@@ -32,15 +32,10 @@ tmp*
 data/
 scripts/
 
+# Benchmark (all files and directories)
+benchmark*
+
 # Result directories
-benchmark_cosmx_holdout/
-benchmark_gnn_tf_knn_real/
-benchmark_ml_fastimp*/
-benchmark_real_data/
-benchmark_rf_score_valid/
-benchmark_rf_simulation/
-benchmark_scalability_out*/
-benchmark_spacer*/
 expression_matched_background_new/
 finalize*/
 finetune_model*/
