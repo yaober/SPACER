@@ -343,7 +343,9 @@ def main():
                         help='List of client CSVs (one per node) for joint mode.')
     parser.add_argument('--reference_gene', type=str, required=True, help='Path to the reference gene CSV file.')
     parser.add_argument('--output_dir', type=str, required=True, help='Directory to save output files.')
-    parser.add_argument('--immune_cell', type=str, default='tcell', help='Type of immune cell to consider.')
+    parser.add_argument('--engage_cell', dest='immune_cell', type=str, default='tcell',
+                        metavar='ENGAGE_CELL',
+                        help='Type of engaging (immune/stromal) cell to model.')
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate for the optimizer.')
     parser.add_argument('--num_epochs', type=int, default=1000, help='Number of epochs to train the model.')
     parser.add_argument('--comm_rounds', type=int, default=50, help='Number of communication rounds (joint mode).')
@@ -356,7 +358,9 @@ def main():
     parser.add_argument('--delta', type=float, default=0.001, help='Minimum change to qualify as an improvement.')
     parser.add_argument('--max_instances', type=int, default=None, help='Maximum instances for the dataset.')
     parser.add_argument('--n_genes', type=int, default=10000, help='Number of genes to consider.')
-    parser.add_argument('--selection', type=str, default='positive', help='Selection of positive or negative samples.')
+    parser.add_argument('--direction', dest='selection', type=str, default='positive',
+                        choices=['positive', 'negative'],
+                        help='Engagement direction: "positive" (induce) or "negative" (repel).')
     parser.add_argument('--gene_weighting', type=str, default='softmax', choices=['softmax', 'sparsemax'],
                         help='How to normalize gene-expression weights across genes.')
     

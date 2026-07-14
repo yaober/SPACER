@@ -4,28 +4,28 @@ argon2-cffi==23.1.0
 argon2-cffi-bindings==21.2.0
 array_api_compat==1.7.1
 arrow==1.3.0
-asttokens @ file:///opt/conda/conda-bld/asttokens_1646925590279/work
+asttokens
 async-lru==2.0.4
 attrs==23.2.0
 Babel==2.15.0
-backcall @ file:///home/ktietz/src/ci/backcall_1611930011877/work
+backcall
 beautifulsoup4==4.12.3
 biopython==1.84
 bleach==6.1.0
 certifi==2024.7.4
 cffi==1.16.0
 charset-normalizer==3.3.2
-comm @ file:///croot/comm_1709322850197/work
+comm
 contourpy==1.2.1
 cycler==0.12.1
-debugpy @ file:///croot/debugpy_1690905042057/work
-decorator @ file:///opt/conda/conda-bld/decorator_1643638310831/work
+debugpy
+decorator
 defusedxml==0.7.1
 Deprecated==1.2.14
 dill==0.3.8
 et-xmlfile==1.1.0
-exceptiongroup @ file:///croot/exceptiongroup_1706031385326/work
-executing @ file:///opt/conda/conda-bld/executing_1646925071911/work
+exceptiongroup
+executing
 fastjsonschema==2.20.0
 filelock==3.15.4
 fonttools==4.53.0
@@ -40,14 +40,14 @@ h5py==3.11.0
 httpcore==1.0.5
 httpx==0.27.0
 idna==3.7
-igraph @ file:///home/conda/feedstock_root/build_artifacts/python-igraph_1649854055012/work
-importlib-metadata @ file:///croot/importlib_metadata-suite_1704813515092/work
+igraph
+importlib-metadata
 importlib_resources==6.4.0
-ipykernel @ file:///croot/ipykernel_1705933831282/work
-ipython @ file:///croot/ipython_1694181358621/work
+ipykernel
+ipython
 ipywidgets==8.1.3
 isoduration==20.11.0
-jedi @ file:///tmp/build/80754af9/jedi_1644297102865/work
+jedi
 Jinja2==3.1.4
 joblib==1.4.2
 json5==0.9.25
@@ -58,8 +58,8 @@ jupyter==1.0.0
 jupyter-console==6.6.3
 jupyter-events==0.10.0
 jupyter-lsp==2.2.5
-jupyter_client @ file:///croot/jupyter_client_1699455897726/work
-jupyter_core @ file:///croot/jupyter_core_1718818295206/work
+jupyter_client
+jupyter_core
 jupyter_server==2.14.2
 jupyter_server_terminals==0.5.3
 jupyterlab==4.2.3
@@ -73,14 +73,14 @@ llvmlite==0.43.0
 magic-impute==3.0.0
 MarkupSafe==2.1.5
 matplotlib==3.9.0
-matplotlib-inline @ file:///opt/conda/conda-bld/matplotlib-inline_1662014470464/work
+matplotlib-inline
 mistune==3.0.2
 mpmath==1.3.0
 natsort==8.4.0
 nbclient==0.10.0
 nbconvert==7.16.4
 nbformat==5.10.4
-nest-asyncio @ file:///croot/nest-asyncio_1708532673751/work
+nest-asyncio
 networkx==3.2.1
 notebook==7.2.1
 notebook_shim==0.2.4
@@ -98,34 +98,34 @@ nvidia-cusparse-cu12==12.1.0.106
 nvidia-nccl-cu12==2.20.5
 nvidia-nvjitlink-cu12==12.5.82
 nvidia-nvtx-cu12==12.1.105
-openpyxl @ file:///croot/openpyxl_1714158863747/work
+openpyxl
 overrides==7.7.0
-packaging @ file:///croot/packaging_1710807400464/work
+packaging
 pandarallel==1.6.5
 pandas==2.2.2
 pandocfilters==1.5.1
-parso @ file:///opt/conda/conda-bld/parso_1641458642106/work
+parso
 patsy==0.5.6
-pexpect @ file:///tmp/build/80754af9/pexpect_1605563209008/work
-pickleshare @ file:///tmp/build/80754af9/pickleshare_1606932040724/work
+pexpect
+pickleshare
 pillow==10.4.0
-platformdirs @ file:///croot/platformdirs_1692205439124/work
+platformdirs
 prefetch_generator==1.0.3
 prometheus_client==0.20.0
-prompt-toolkit @ file:///croot/prompt-toolkit_1704404351921/work
-psutil @ file:///opt/conda/conda-bld/psutil_1656431268089/work
-ptyprocess @ file:///tmp/build/80754af9/ptyprocess_1609355006118/work/dist/ptyprocess-0.7.0-py2.py3-none-any.whl
-pure-eval @ file:///opt/conda/conda-bld/pure_eval_1646925070566/work
+prompt-toolkit
+psutil
+ptyprocess
+pure-eval
 pycparser==2.22
-Pygments @ file:///croot/pygments_1684279966437/work
+Pygments
 PyGSP==0.5.1
 pynndescent==0.5.13
 pyparsing==3.1.2
-python-dateutil @ file:///croot/python-dateutil_1716495738603/work
+python-dateutil
 python-json-logger==2.0.7
 pytz==2024.1
 PyYAML==6.0.1
-pyzmq @ file:///croot/pyzmq_1705605076900/work
+pyzmq
 qtconsole==5.5.2
 QtPy==2.4.1
 referencing==0.35.1
@@ -140,16 +140,16 @@ scprep==1.2.3
 seaborn==0.13.2
 Send2Trash==1.8.3
 session_info==1.0.0
-six @ file:///tmp/build/80754af9/six_1644875935023/work
+six
 sniffio==1.3.1
 soupsieve==2.5
-stack-data @ file:///opt/conda/conda-bld/stack_data_1646927590127/work
+stack-data
 statsmodels==0.14.2
 stdlib-list==0.10.0
 sympy==1.12.1
 tasklogger==1.2.0
 terminado==0.18.1
-texttable @ file:///home/conda/feedstock_root/build_artifacts/texttable_1696407540773/work
+texttable
 threadpoolctl==3.5.0
 tinycss2==1.3.0
 tomli==2.0.1
@@ -158,20 +158,20 @@ torchaudio==2.3.1
 torchsummary==1.5.1
 torchvision==0.18.1
 torchviz==0.0.2
-tornado @ file:///croot/tornado_1718740109488/work
+tornado
 tqdm==4.66.4
-traitlets @ file:///croot/traitlets_1718227057033/work
+traitlets
 triton==2.3.1
 types-python-dateutil==2.9.0.20240316
-typing_extensions @ file:///croot/typing_extensions_1715268824938/work
+typing_extensions
 tzdata==2024.1
 umap-learn==0.5.6
 uri-template==1.3.0
 urllib3==2.2.2
-wcwidth @ file:///Users/ktietz/demo/mc3/conda-bld/wcwidth_1629357192024/work
+wcwidth
 webcolors==24.6.0
 webencodings==0.5.1
 websocket-client==1.8.0
 widgetsnbextension==4.0.11
 wrapt==1.16.0
-zipp @ file:///croot/zipp_1704206909481/work
+zipp

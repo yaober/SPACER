@@ -23,22 +23,26 @@ def load_all_genes(reference_gene_file):
 
 def predict(model, adata, device, radius=200, max_instances=None, n_genes=500, immune_cell='tcell', resolution='low'):
     model.eval()
-    dataset = BagsDataset(adata, immune_cell=immune_cell, radius=radius, max_instances=max_instances,resolution=resolution)
+    dataset = BagsDataset(adata, immune_cell=immune_cell, radius=radius, max_instances=max_instances, n_genes=n_genes, resolution=resolution)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=custom_collate_fn)
     predictions = np.full(len(adata.obs), np.nan)  # Initialize predictions array with NaNs
     
     with torch.no_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
-            for distances, gene_expressions, _, core_idx, gene_names in tepoch:
+            for distances, gene_expressions, labels, core_idxs, gene_names, cell_ids in tepoch:
                 tepoch.set_description("Predicting")
-                
+
                 # Move data to the device
                 distances = [d.to(device) for d in distances]
                 gene_expressions = [g.to(device) for g in gene_expressions]
-                output = model(distances, gene_expressions, list(gene_names[0]))
-                
-                # Ensure we extract a single element from core_idx and output before using them
-                predictions[int(core_idx.item())] = output.cpu().numpy().flatten().item()
+                outputs = model(distances, gene_expressions, list(gene_names[0]))
+                if outputs is None:
+                    continue
+
+                # One output per bag; scatter each prediction back to its core cell index
+                outputs = outputs.cpu().numpy().flatten()
+                for core_idx, pred in zip(core_idxs, outputs):
+                    predictions[int(core_idx)] = float(pred)
     
     adata.obs['T_pred'] = predictions
     return adata
@@ -52,7 +56,9 @@ def main():
     parser.add_argument('--radius', type=int, default=200, help='Radius for the dataset.')
     parser.add_argument('--max_instances', type=int, default=None, help='Maximum instances for the dataset.')
     parser.add_argument('--n_genes', type=int, default=500, help='Number of genes to use.')
-    parser.add_argument('--immune_cell', type=str, default='tcell', help='Immune cell type.')
+    parser.add_argument('--engage_cell', dest='immune_cell', type=str, default='tcell',
+                        metavar='ENGAGE_CELL',
+                        help='Type of engaging (immune/stromal) cell to model.')
     parser.add_argument('--resolution', type=str, default='low', help='Resolution for the dataset.')
     parser.add_argument('--gene_weighting', type=str, default='softmax', choices=['softmax', 'sparsemax'],
                         help='How gene-expression weights were normalized during training.')
