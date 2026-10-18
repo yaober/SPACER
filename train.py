@@ -84,7 +84,7 @@ def _local_train_one_epoch(
                 for k in GLOBAL_PARAM_KEYS:
                     if k not in global_ref_state:
                         continue
-                    cur = model.state_dict()[k]
+                    cur = model.get_parameter(k)
                     ref = global_ref_state[k].to(cur.device)
                     prox = prox + (cur - ref).pow(2).sum()
                 loss = loss + 0.5 * float(fedprox_mu) * prox
